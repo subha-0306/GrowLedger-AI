@@ -215,6 +215,23 @@ function PassportCard() {
 }
 
 /* ─────────────────────────────────────────────────────────────
+   SHARED UTILITIES
+───────────────────────────────────────────────────────────── */
+function SectionLabel({ children, color = 'sage' }) {
+  const c = { sage: 'text-[#5f7d66]', clay: 'text-[#c87a53]', muted: 'text-[#94a3b8]' };
+  return (
+    <p className={`font-mono text-[11px] font-bold tracking-[0.32em] uppercase ${c[color]} mb-4`}>
+      {children}
+    </p>
+  );
+}
+
+function SectionDivider() {
+  return <div className="w-full border-t border-[#e9e4db]" />;
+}
+
+
+/* ─────────────────────────────────────────────────────────────
    MAIN PAGE
 ───────────────────────────────────────────────────────────── */
 export default function Landing({ setPredictionData }) {
@@ -465,10 +482,10 @@ export default function Landing({ setPredictionData }) {
           {/* Centered timeline container */}
           <div className="relative mt-12 mb-8 hidden md:block">
             {/* Base timeline gray line */}
-            <div className="absolute top-[22px] left-[15%] right-[15%] h-[2px] bg-[#d8d2c8]" />
+            <div className="absolute top-[32px] left-[15%] right-[15%] h-[2px] bg-[#d8d2c8]" />
             {/* Animated green progress line */}
             <div 
-              className="absolute top-[22px] left-[15%] h-[2px] bg-[#5f7d66] transition-all duration-[1200ms] ease-out" 
+              className="absolute top-[32px] left-[15%] h-[2px] bg-[#5f7d66] transition-all duration-[1200ms] ease-out" 
               style={{ width: lineVisible ? '70%' : '0%' }}
             />
           </div>
@@ -485,33 +502,29 @@ export default function Landing({ setPredictionData }) {
                   onMouseEnter={() => setHoveredStep(idx)}
                   onMouseLeave={() => setHoveredStep(null)}
                 >
-                  {/* Timeline indicator node */}
-                  <div className="relative flex justify-center">
-                    {/* Circle badge */}
+                  {/* Timeline indicator node — Centered step number above main circle */}
+                  <div className="relative flex justify-center mb-2 pt-2">
+                    {/* Main Icon Circle */}
                     <div
-                      className="w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-500 shadow-sm"
+                      className="w-16 h-16 rounded-full flex items-center justify-center border transition-all duration-500 shadow-sm"
+                      style={{
+                        backgroundColor: isLit ? '#edf3ee' : '#ffffff',
+                        borderColor:     isLit ? '#c4d6c7' : '#d8d2c8',
+                      }}
+                    >
+                      <Icon className="w-6 h-6 transition-colors duration-500" style={{ color: isLit ? '#5f7d66' : '#94a3b8' }} />
+                    </div>
+
+                    {/* Step Number Circle positioned neatly above the main circle */}
+                    <div 
+                      className="absolute -top-3.5 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full flex items-center justify-center border font-serif text-xs font-bold shadow-sm transition-colors duration-500"
                       style={{
                         backgroundColor: isLit ? '#081c15' : '#ffffff',
                         borderColor:     isLit ? '#c2a67a' : '#d8d2c8',
+                        color:           isLit ? '#ffffff' : '#081c15',
                       }}
                     >
-                      <span
-                        className="font-serif text-lg font-bold transition-colors duration-500"
-                        style={{ color: isLit ? '#ffffff' : '#081c15' }}
-                      >
-                        {item.step}
-                      </span>
-                    </div>
-
-                    {/* Node floating icon badge */}
-                    <div 
-                      className="absolute -bottom-2 -right-2 w-7 h-7 rounded-lg flex items-center justify-center border shadow-xs transition-colors duration-300"
-                      style={{
-                        backgroundColor: isLit ? '#edf3ee' : '#ffffff',
-                        borderColor:     isLit ? '#d4dfd6' : '#ebd8cc',
-                      }}
-                    >
-                      <Icon className="w-4 h-4" style={{ color: isLit ? '#5f7d66' : '#94a3b8' }} />
+                      {item.step}
                     </div>
                   </div>
 
@@ -569,8 +582,8 @@ export default function Landing({ setPredictionData }) {
               </a>
             </div>
 
-            {/* Right horizontal pipeline nodes track */}
-            <div className="lg:col-span-8 bg-[#faf8f5] border border-[#e9e4db] rounded-2xl p-6 shadow-sm">
+            {/* Right horizontal pipeline nodes track — Enlarged & highly legible */}
+            <div className="lg:col-span-8 bg-[#faf8f5] border border-[#e9e4db] rounded-2xl p-10 shadow-md">
               <div className="grid grid-cols-5 gap-0 items-center">
                 {methodologySteps.map((step, i) => {
                   const Icon = step.icon;
@@ -580,33 +593,35 @@ export default function Landing({ setPredictionData }) {
                   return (
                     <div key={step.label} className="flex items-center">
                       <div
-                        className="flex-1 flex flex-col items-center gap-2.5 cursor-pointer py-3.5 px-2 rounded-xl transition-all duration-300"
+                        className="flex-1 flex flex-col items-center gap-3.5 cursor-pointer py-4 px-2 rounded-xl transition-all duration-300"
                         style={{
                           opacity:         isInactive ? 0.35 : 1,
                           backgroundColor: isActive ? '#edf3ee' : 'transparent',
-                          transform:       isActive ? 'scale(1.05)' : 'scale(1)',
+                          transform:       isActive ? 'scale(1.06)' : 'scale(1)',
                         }}
                         onMouseEnter={() => setActiveMethodStep(i)}
                         onMouseLeave={() => setActiveMethodStep(null)}
                       >
+                        {/* Larger Circle Icon Container */}
                         <div
-                          className="w-11 h-11 rounded-xl flex items-center justify-center border-2 transition-all duration-300"
+                          className="w-16 h-16 rounded-xl flex items-center justify-center border-2 transition-all duration-300"
                           style={{
                             backgroundColor: isActive ? '#ffffff' : '#f3f7f3',
                             borderColor:     isActive ? '#5f7d66' : '#e9e4db',
-                            boxShadow:       isActive ? '0 4px 10px rgba(95,125,102,0.15)' : 'none',
+                            boxShadow:       isActive ? '0 6px 14px rgba(95,125,102,0.18)' : 'none',
                           }}
                         >
-                          <Icon className="w-5 h-5 transition-transform" style={{ color: isActive ? '#5f7d66' : '#94a3b8', transform: isActive ? 'scale(1.1)' : 'none' }} />
+                          <Icon className="w-7 h-7 transition-transform" style={{ color: isActive ? '#5f7d66' : '#94a3b8', transform: isActive ? 'scale(1.12)' : 'none' }} />
                         </div>
-                        <p className="font-serif text-[11px] font-bold text-[#0f172a] text-center leading-tight">{step.label}</p>
-                        <p className="font-sans text-[10px] text-[#94a3b8] text-center leading-tight hidden md:block">{step.sub}</p>
+                        {/* Large Labels & Subtexts */}
+                        <p className="font-serif text-[14.5px] font-bold text-[#0f172a] text-center leading-snug">{step.label}</p>
+                        <p className="font-sans text-[12.5px] text-[#475569] text-center leading-tight hidden md:block">{step.sub}</p>
                       </div>
                       
                       {/* Flow arrow indicator */}
                       {i < methodologySteps.length - 1 && (
                         <div className="shrink-0 flex items-center justify-center w-5">
-                          <ArrowRight className={`w-3.5 h-3.5 transition-colors ${isActive ? 'text-[#5f7d66] font-bold' : 'text-[#d8d2c8]'}`} />
+                          <ArrowRight className={`w-4 h-4 transition-colors ${isActive ? 'text-[#5f7d66] font-bold' : 'text-[#d8d2c8]'}`} />
                         </div>
                       )}
                     </div>
@@ -758,31 +773,37 @@ export default function Landing({ setPredictionData }) {
       {/* ════════════════════════════════════════════════════════
           7. MISSION — Warm Cream Background
       ════════════════════════════════════════════════════════ */}
-      <section id="about" className="relative py-16 px-6 md:px-14 bg-[#f4f1e8] overflow-hidden">
+      <section id="about" className="relative py-20 px-6 md:px-14 bg-[#f4f1e8] overflow-hidden">
         {/* Watercolor watermark stains */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_50%,rgba(95,125,102,0.05)_0%,transparent_80%)] pointer-events-none" />
         
-        <div className="relative max-w-3xl mx-auto text-center space-y-5">
+        {/* Left Leafy Outline Background Watermark */}
+        <svg className="absolute opacity-[0.08] left-8 top-1/2 -translate-y-1/2 w-48 h-48 pointer-events-none" viewBox="0 0 100 100" fill="none" stroke="#5f7d66" strokeWidth="1.2" strokeLinecap="round">
+          <path d="M10,90 C30,70 50,40 80,20" />
+          <path d="M80,20 C70,25 60,35 55,45 C50,55 52,65 58,70 C64,75 72,70 76,60 C80,50 82,35 80,20 Z" fill="#5f7d66" fillOpacity="0.08" />
+          <path d="M45,55 C35,58 25,65 20,72 C15,79 18,84 24,85 C30,86 38,82 42,74" />
+        </svg>
+
+        {/* Right Leafy Outline Background Watermark */}
+        <svg className="absolute opacity-[0.08] right-8 top-1/2 -translate-y-1/2 w-48 h-48 pointer-events-none transform scale-x-[-1]" viewBox="0 0 100 100" fill="none" stroke="#5f7d66" strokeWidth="1.2" strokeLinecap="round">
+          <path d="M10,90 C30,70 50,40 80,20" />
+          <path d="M80,20 C70,25 60,35 55,45 C50,55 52,65 58,70 C64,75 72,70 76,60 C80,50 82,35 80,20 Z" fill="#5f7d66" fillOpacity="0.08" />
+        </svg>
+
+        <div className="relative max-w-3xl mx-auto text-center space-y-4">
           <p className="font-mono text-[11px] font-bold tracking-[0.3em] uppercase text-[#94a3b8]">OUR MISSION</p>
           
-          {/* Faded Quote Ornament marks */}
-          <div className="font-serif text-[6rem] text-[#ddd8cd] leading-none select-none -mb-6">&ldquo;</div>
+          {/* Elegant centered quotation mark above quote */}
+          <div className="font-serif text-[4.5rem] text-[#c2a67a] opacity-35 leading-none select-none">&ldquo;</div>
           
-          <blockquote style={{
-            fontFamily: "'Lora', Georgia, serif",
-            fontSize: 'clamp(1.2rem, 2.2vw, 1.7rem)',
-            fontWeight: 500,
-            lineHeight: 1.65,
-            color: '#0f172a',
-            fontStyle: 'italic',
-            margin: 0,
-          }}>
+          <blockquote className="relative z-10 font-serif italic text-xl sm:text-2xl lg:text-[1.65rem] leading-[1.75] text-[#0f172a] font-medium px-4">
             We built GrowLedger because financial access should reflect who you are &mdash; not just what a bureau can verify. Transparent, explainable, and fair, for the workers who keep India running.
           </blockquote>
-          
-          <div className="font-serif text-[6rem] text-[#ddd8cd] leading-none select-none -mt-6">&rdquo;</div>
 
-          <div className="pt-2">
+          {/* Elegant centered quotation mark below quote */}
+          <div className="font-serif text-[4.5rem] text-[#c2a67a] opacity-35 leading-none select-none pt-2">&rdquo;</div>
+
+          <div className="pt-2 relative z-10">
             <button
               onClick={() => navigate('/assess')}
               className="bg-[#a91d22] hover:bg-[#c4252a] text-white text-[15px] font-semibold py-3.5 px-8 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg hover:scale-[1.01]"
