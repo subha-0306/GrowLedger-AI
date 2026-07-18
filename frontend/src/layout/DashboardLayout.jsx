@@ -1,143 +1,114 @@
 import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
-import { Home, Sparkles, Activity, Menu, X, Landmark } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Menu, X } from 'lucide-react';
 
 export default function DashboardLayout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isLanding = location.pathname === '/';
 
-  const navigation = [
-    { name: 'Home', href: '/', icon: Home },
-    { name: 'Credit Assessment', href: '/assess', icon: Sparkles },
-    { name: 'System Status', href: '/status', icon: Activity },
+  const navLinks = [
+    { name: 'Home',            href: '/'             },
+    { name: 'How It Works',    href: '/#how-it-works'  },
+    { name: 'Methodology',     href: '/#methodology'   },
+    { name: 'Demo Profiles',   href: '/#demo-profiles' },
+    { name: 'About',           href: '/#about'         },
   ];
 
+  const handleStartAssessment = () => {
+    navigate('/assess');
+    setMobileMenuOpen(false);
+  };
+
   return (
-    <div className="flex h-screen overflow-hidden bg-zinc-50 text-zinc-900 font-sans">
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex md:flex-shrink-0 md:flex-col w-64 border-r border-zinc-200 bg-white shadow-sm">
-        <div className="flex flex-col flex-1 min-h-0">
-          {/* Logo Header */}
-          <div className="flex items-center h-16 px-6 gap-3 border-b border-zinc-100 bg-zinc-50/50">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 shadow-sm">
-              <Landmark className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <span className="text-sm font-extrabold tracking-tight text-zinc-900 block">GrowLedger AI</span>
-              <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider m-0 mt-0.5">Credit Readiness</p>
-            </div>
-          </div>
-          
-          {/* Navigation Links */}
-          <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto bg-white">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.name}
-                  to={item.href}
-                  end={item.href === '/'} // End route strict matching for root home page
-                  className={({ isActive }) =>
-                    `flex items-center px-4 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 group ${
-                      isActive
-                        ? 'bg-blue-50 border border-blue-100 text-blue-600 shadow-sm'
-                        : 'text-zinc-500 hover:bg-zinc-50 hover:text-zinc-850 border border-transparent'
-                    }`
-                  }
-                >
-                  <Icon className="mr-3 h-5 w-5 flex-shrink-0 group-hover:scale-105 transition-transform duration-200" />
-                  {item.name}
-                </NavLink>
-              );
-            })}
-          </nav>
+    <div className="min-h-screen flex flex-col bg-[#faf8f5] text-[#0f172a] font-sans antialiased selection:bg-[#a91d22]/10 selection:text-[#a91d22]">
 
-          {/* Footer Info */}
-          <div className="p-4 border-t border-zinc-100 bg-zinc-50/50">
-            <div className="flex items-center gap-2.5">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse animate-duration-1000" />
-              <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Core API Connected</span>
-            </div>
-          </div>
+      {/* ─── Sticky Top Navigation — Premium Dark Forest Green + Gold Accent ─── */}
+      <header className="sticky top-0 z-50 bg-[#081c15]/95 backdrop-blur-md border-b border-[#c2a67a]/25 h-[90px] w-full flex items-center justify-between px-6 md:px-14 select-none shadow-sm transition-all">
+
+        {/* Left: Transparent Logo + Wordmark */}
+        <Link to="/" className="flex items-center gap-3.5 group decoration-transparent shrink-0">
+          <img
+            src="/logo.png"
+            alt="GrowLedger Logo"
+            className="w-[62px] h-[62px] object-contain transition-transform duration-200 group-hover:scale-105"
+          />
+          <span className="font-serif text-2xl font-bold tracking-tight text-white leading-none">
+            GrowLedger
+          </span>
+        </Link>
+
+        {/* Center: Nav Links — warm white on dark forest */}
+        <nav className="hidden lg:flex items-center gap-8 xl:gap-10">
+          {navLinks.map((link) => (
+            <a
+              key={link.name}
+              href={link.href}
+              className="font-sans text-sm font-medium text-[#a3b8b0] hover:text-white transition-colors duration-150 decoration-transparent relative py-1.5 after:absolute after:bottom-0 after:left-0 after:w-full after:h-[1.5px] after:bg-[#c2a67a] after:scale-x-0 hover:after:scale-x-100 after:origin-left after:transition-transform after:duration-250"
+            >
+              {link.name}
+            </a>
+          ))}
+        </nav>
+
+        {/* Right: Richer Red CTA with softer corners */}
+        <div className="hidden lg:flex items-center shrink-0">
+          <button
+            onClick={handleStartAssessment}
+            className="bg-[#a91d22] hover:bg-[#c4252a] text-white text-[13.5px] font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-95"
+          >
+            Start Assessment
+          </button>
         </div>
-      </aside>
 
-      {/* Mobile Sidebar Overlay Drawer */}
+        {/* Mobile hamburger */}
+        <div className="lg:hidden flex items-center">
+          <button
+            type="button"
+            className="p-2 -mr-2 text-[#a3b8b0] hover:text-white focus:outline-none transition-colors duration-150"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile Drawer — dark forest green */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-40 flex md:hidden bg-zinc-950/20 backdrop-blur-sm">
-          <div className="relative flex flex-col flex-1 w-full max-w-xs pt-5 pb-4 bg-white border-r border-zinc-200 animate-slide-in">
-            {/* Close Button */}
-            <div className="absolute top-0 right-0 pt-2 -mr-12">
-              <button
-                type="button"
-                className="flex items-center justify-center w-10 h-10 ml-1 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-zinc-500 hover:text-zinc-800"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            {/* Mobile Logo */}
-            <div className="flex items-center px-6 gap-3 mb-6">
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600">
-                <Landmark className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-base font-bold text-zinc-950">GrowLedger AI</span>
-            </div>
-
-            {/* Mobile Navigation Links */}
-            <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto">
-              {navigation.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <NavLink
-                    key={item.name}
-                    to={item.href}
-                    end={item.href === '/'}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={({ isActive }) =>
-                      `flex items-center px-4 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 ${
-                        isActive
-                          ? 'bg-blue-50 text-blue-600 border border-blue-100 shadow-sm'
-                          : 'text-zinc-500 hover:bg-zinc-50 hover:text-zinc-850 border border-transparent'
-                      }`
-                    }
-                  >
-                    <Icon className="mr-3 h-5 w-5 flex-shrink-0" />
-                    {item.name}
-                  </NavLink>
-                );
-              })}
-            </nav>
+        <div className="lg:hidden bg-[#081c15] border-b border-[#c2a67a]/25 px-6 py-5 space-y-1">
+          {navLinks.map((link) => (
+            <a
+              key={link.name}
+              href={link.href}
+              onClick={() => setMobileMenuOpen(false)}
+              className="block font-sans text-sm font-medium text-[#a3b8b0] hover:text-white py-2.5 border-b border-[#0f2e22] decoration-transparent transition-colors duration-150"
+            >
+              {link.name}
+            </a>
+          ))}
+          <div className="pt-4">
+            <button
+              onClick={handleStartAssessment}
+              className="w-full bg-[#a91d22] hover:bg-[#c4252a] text-white text-sm font-semibold py-3.5 px-4 rounded-lg transition-all duration-200"
+            >
+              Start Assessment
+            </button>
           </div>
         </div>
       )}
 
-      {/* Main Content Area */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden bg-zinc-50">
-        {/* Mobile Header Nav bar */}
-        <header className="flex items-center justify-between h-16 px-6 border-b border-zinc-200 md:hidden bg-white/80 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600">
-              <Landmark className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-sm font-bold text-zinc-900 tracking-wide uppercase">GrowLedger AI</span>
-          </div>
-          <button
-            type="button"
-            className="p-2 -mr-2 rounded-lg text-zinc-500 hover:text-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            onClick={() => setMobileMenuOpen(true)}
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-        </header>
-
-        {/* Dynamic Page Slots */}
-        <main className="flex-1 relative overflow-y-auto focus:outline-none p-6 md:p-8">
-          <div className="max-w-6xl mx-auto h-full">
+      {/* Main Page Content */}
+      <main className="flex-1 w-full">
+        {isLanding ? (
+          children
+        ) : (
+          <div className="max-w-7xl mx-auto px-6 py-10 md:px-12 md:py-16">
             {children}
           </div>
-        </main>
-      </div>
+        )}
+      </main>
+
     </div>
   );
 }
