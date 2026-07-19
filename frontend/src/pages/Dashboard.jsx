@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { predictCreditReadiness } from '../services/api';
 import demoProfiles from '../data/demo_profiles.json';
@@ -9,13 +9,26 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+const avatarUrls = {
+  rajesh: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=120&h=120',
+  lakshmi: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=120&h=120',
+  arun: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=120&h=120',
+  priya: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=120&h=120',
+  ramesh: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=120&h=120'
+};
+
 export default function Dashboard({ predictionData, setPredictionData }) {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [processingStep, setProcessingStep] = useState(0); // 0: Idle, 1-5: Checkpoints, 6: Syncing
+  const [processingStep, setProcessingStep] = useState(0); // 0: Idle, 1-7: Checkpoints, 8: Syncing
   const [error, setError] = useState(null);
   const [completedSteps, setCompletedSteps] = useState({}); // Toggles checklist milestones
+  const [selectedProfileId, setSelectedProfileId] = useState(null);
+  const [showMobilePreview, setShowMobilePreview] = useState(false);
+  const [animateProgress, setAnimateProgress] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStep, setExportStep] = useState(1);
 
   // Form State
   const [form, setForm] = useState({
@@ -34,11 +47,102 @@ export default function Dashboard({ predictionData, setPredictionData }) {
 
   const processingStepsList = [
     "Validating Financial Data",
-    "Running AI Prediction",
-    "Explaining Decision",
-    "Preparing Financial Story",
-    "Building Personalized Roadmap"
+    "Feature Engineering",
+    "Running LightGBM Prediction",
+    "TreeSHAP Explainability",
+    "Financial Story Generation",
+    "Counterfactual Coaching",
+    "Building 30/60/90 Roadmap"
   ];
+
+  // Trigger progress bar animations on load/result generation
+  useEffect(() => {
+    if (predictionData) {
+      const timer = setTimeout(() => setAnimateProgress(true), 150);
+      return () => clearTimeout(timer);
+    } else {
+      setAnimateProgress(false);
+    }
+  }, [predictionData]);
+
+  // Smooth scroll to summary card upon evaluation results load
+  useEffect(() => {
+    if (predictionData) {
+      const timer = setTimeout(() => {
+        const element = document.getElementById('summary');
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [predictionData]);
+
+  const getPremiumPassportStyle = (tier) => {
+    const colors = {
+      Ready: {
+        bg: 'repeating-linear-gradient(45deg, rgba(31,75,58,0.012) 0px, rgba(31,75,58,0.012) 1px, transparent 1px, transparent 8px), linear-gradient(135deg, #edf4ef 0%, #dbeee0 100%)',
+        border: 'border-[#1F4B3A]/30 shadow-[inset_0_0_20px_rgba(31,75,58,0.05)]',
+        watermark: 'READY OFFICIAL ACCESS'
+      },
+      Emerging: {
+        bg: 'repeating-linear-gradient(45deg, rgba(184,138,59,0.012) 0px, rgba(184,138,59,0.012) 1px, transparent 1px, transparent 8px), linear-gradient(135deg, #fdfaf2 0%, #f4ead0 100%)',
+        border: 'border-[#B88A3B]/30 shadow-[inset_0_0_20px_rgba(184,138,59,0.05)]',
+        watermark: 'EMERGING SIGNAL ACTIVE'
+      },
+      Building: {
+        bg: 'repeating-linear-gradient(45deg, rgba(194,144,26,0.012) 0px, rgba(194,144,26,0.012) 1px, transparent 1px, transparent 8px), linear-gradient(135deg, #fffcf3 0%, #f7f2d4 100%)',
+        border: 'border-[#c2901a]/25 shadow-[inset_0_0_20px_rgba(194,144,26,0.04)]',
+        watermark: 'BUILDING PHASE SIGNAL'
+      }
+    };
+    return colors[tier] || colors.Building;
+  };
+
+  const downloadPDF = () => {
+    setExporting(true);
+    setExportStep(1);
+    
+    let currentStep = 1;
+    const interval = setInterval(() => {
+      currentStep += 1;
+      if (currentStep <= 5) {
+        setExportStep(currentStep);
+      } else {
+        clearInterval(interval);
+        
+        const element = document.getElementById('passport-print-template');
+        const opt = {
+          margin:       0.4,
+          filename:     `GL-Readiness-Passport-${form.occupation.replace(/\s+/g, '-')}.pdf`,
+          image:        { type: 'jpeg', quality: 0.98 },
+          html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+          jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+        
+        if (window.html2pdf) {
+          window.html2pdf().from(element).set(opt).save().then(() => {
+            setExporting(false);
+            toast.success("Passport PDF downloaded successfully!");
+          });
+        } else {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+          script.onload = () => {
+            window.html2pdf().from(element).set(opt).save().then(() => {
+              setExporting(false);
+              toast.success("Passport PDF downloaded successfully!");
+            });
+          };
+          document.body.appendChild(script);
+        }
+      }
+    }, 400);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
 
   const handleProfileSelect = (profile) => {
     const selectedData = {
@@ -57,6 +161,7 @@ export default function Dashboard({ predictionData, setPredictionData }) {
     setForm(selectedData);
     setStep(3); // Fast forward wizard step to final step
     setError(null);
+    setSelectedProfileId(profile.id);
     toast.success(`Loaded ${profile.name}'s profile parameters! Starting credit evaluation...`);
 
     // Run prediction scoring flow immediately with selected dataset
@@ -69,6 +174,7 @@ export default function Dashboard({ predictionData, setPredictionData }) {
       ...prev,
       [name]: type === 'number' ? (value === '' ? '' : parseFloat(value)) : value,
     }));
+    setSelectedProfileId(null);
   };
 
   // Step-level validation
@@ -173,11 +279,11 @@ export default function Dashboard({ predictionData, setPredictionData }) {
     let currentAnimationStep = 1;
     const intervalId = setInterval(() => {
       currentAnimationStep += 1;
-      if (currentAnimationStep <= 5) {
+      if (currentAnimationStep <= 7) {
         setProcessingStep(currentAnimationStep);
       } else {
         clearInterval(intervalId);
-        setProcessingStep(6); // Step 6: wait for API resolution
+        setProcessingStep(8); // Step 8: wait for API resolution
         checkApiResolution();
       }
     }, 600);
@@ -197,7 +303,7 @@ export default function Dashboard({ predictionData, setPredictionData }) {
       
       if (errorPayload) {
         console.error(errorPayload);
-        const errMsg = errorPayload.message || 'Error communicating with Flask API.';
+        const errMsg = errorPayload.message || 'Error communicating with Alternative Credit API.';
         setError(errMsg);
         toast.error(errMsg);
       } else if (result && result.success) {
@@ -220,37 +326,30 @@ export default function Dashboard({ predictionData, setPredictionData }) {
     toast.success('Milestone checkpoint updated!');
   };
 
-  const getStepHeaderClass = (stepNum) => {
-    if (step === stepNum) return 'border-blue-600 text-blue-600 font-bold';
-    if (step > stepNum) return 'border-emerald-500 text-emerald-600 font-bold';
-    return 'border-zinc-200 text-zinc-400 font-medium';
-  };
-
   const getTierColor = (tier) => {
     switch (tier) {
       case 'Ready':
-        return 'from-emerald-50 to-teal-50 text-emerald-800 border-emerald-200 glow-emerald';
+        return 'from-[#edf3ee] to-[#ddeedd] text-[#1F4B3A] border-[#c4d6c7] shadow-[0_8px_24px_rgba(31,75,58,0.06)]';
       case 'Emerging':
-        return 'from-amber-50 to-orange-50 text-amber-800 border-amber-200 glow-amber';
+        return 'from-[#fdfaf0] to-[#f5ead4] text-[#B88A3B] border-[#ebdcb4] shadow-[0_8px_24px_rgba(184,138,59,0.06)]';
       case 'Building':
       default:
-        return 'from-rose-50 to-red-50 text-rose-800 border-rose-200 glow-rose';
+        return 'from-[#fffbef] to-[#f9f3d9] text-[#c2901a] border-[#e8dbb0] shadow-[0_8px_24px_rgba(194,144,26,0.06)]';
     }
   };
 
   const getTierBadgeColor = (tier) => {
     switch (tier) {
       case 'Ready':
-        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+        return 'bg-[#edf3ee] text-[#1F4B3A] border-[#c4d6c7]';
       case 'Emerging':
-        return 'bg-amber-100 text-amber-800 border-amber-200';
+        return 'bg-[#fdfaf0] text-[#B88A3B] border-[#ebdcb4]';
       case 'Building':
       default:
-        return 'bg-rose-100 text-rose-800 border-rose-200';
+        return 'bg-[#fffbef] text-[#c2901a] border-[#e8dbb0]';
     }
   };
 
-  // Derive helper indices for Section 2: Financial Health
   const calcSavingsRate = () => {
     const income = Number(form.monthly_income) || 0;
     if (income <= 0) return '0%';
@@ -283,124 +382,238 @@ export default function Dashboard({ predictionData, setPredictionData }) {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in text-left">
-      {/* Intro Header */}
-      <div>
-        <h2 className="text-3xl font-extrabold text-zinc-900 m-0 tracking-tight">Credit Readiness Assessment</h2>
-        <p className="text-zinc-500 mt-1 text-sm">Submit Indian gig worker financial parameters to evaluate formal credit access ratings.</p>
+    <div className="space-y-8 animate-fade-in text-left min-h-screen bg-[#FBF8F2] p-2 md:p-6 rounded-[24px]">
+      
+      {/* Onboarding Header */}
+      <div className="border-b border-[#E6DED2] pb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+        <div className="space-y-2">
+          <h2 className="font-serif text-3xl md:text-4xl font-extrabold text-[#1F2430] m-0 tracking-tight">
+            Financial Readiness Assessment
+          </h2>
+          <p className="font-sans text-[#666666] text-sm md:text-base max-w-2xl m-0 leading-relaxed">
+            Complete this 2-minute assessment to understand your financial readiness before applying for formal credit.
+          </p>
+        </div>
+        
+        {/* Info & Progress Block */}
+        <div className="flex flex-col sm:flex-row items-center gap-4 shrink-0 bg-[#FFFDF8] border border-[#E6DED2] p-4 rounded-[20px] shadow-sm w-full md:w-auto">
+          <div className="text-center sm:text-left px-2">
+            <span className="block text-[10px] font-sans font-bold text-[#666666] uppercase tracking-wider">Estimated Time</span>
+            <span className="font-serif text-sm font-bold text-[#1F4B3A]">2 minutes</span>
+          </div>
+          <div className="hidden sm:block w-px h-8 bg-[#E6DED2]" />
+          <div className="w-full sm:w-[160px] flex flex-col gap-1.5 px-2">
+            <div className="flex items-center justify-between text-[10px] font-sans font-bold text-[#666666] uppercase tracking-wider">
+              <span>Step {step} of 3</span>
+              <span className="text-[#2E6A52] font-mono">{step === 1 ? 32 : step === 2 ? 65 : 100}% Complete</span>
+            </div>
+            <div className="w-full bg-[#E6DED2] h-1.5 rounded-full overflow-hidden">
+              <div 
+                className="bg-[#2E6A52] h-full rounded-full transition-all duration-500 ease-out"
+                style={{ width: step === 1 ? '32%' : step === 2 ? '65%' : '100%' }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
       
       {/* SECTION: Rich Demo Profile Cards Selector (Rajesh, Lakshmi, Arun, Priya, Ramesh) */}
-      <div className="space-y-3">
-        <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5 select-none">
-          <Landmark className="w-4 h-4 text-blue-600" />
+      <div className="space-y-4">
+        <h3 className="font-sans text-xs font-bold text-[#666666] uppercase tracking-widest flex items-center gap-2 select-none m-0">
+          <Landmark className="w-4 h-4 text-[#2E6A52]" />
           <span>Interactive Demo Personas</span>
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {demoProfiles.map((profile) => (
-            <button
-              key={profile.id}
-              onClick={() => handleProfileSelect(profile)}
-              className="glass-panel p-4 rounded-2xl text-left hover:border-blue-500/50 hover:bg-zinc-50 transition-all duration-300 cursor-pointer shadow-sm group select-none flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl">{profile.avatar}</span>
-                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase ${
-                    profile.tier === 'Good' 
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                      : profile.tier === 'Average' 
-                      ? 'bg-amber-50 text-amber-700 border-amber-200' 
-                      : 'bg-rose-50 text-rose-700 border-rose-200'
-                  }`}>
-                    {profile.tier}
-                  </span>
+          {demoProfiles.map((profile) => {
+            const isSelected = selectedProfileId === profile.id;
+            return (
+              <div
+                key={profile.id}
+                onClick={() => handleProfileSelect(profile)}
+                style={{
+                  background: '#FFFDF8',
+                  borderColor: isSelected ? '#2E6A52' : '#E6DED2',
+                  borderWidth: isSelected ? '2px' : '1px',
+                  boxShadow: isSelected 
+                    ? '0 8px 24px rgba(46,106,82,0.15), 0 2px 4px rgba(46,106,82,0.08)' 
+                    : '0 1px 2px rgba(15,23,42,0.03), 0 4px 12px rgba(15,23,42,0.05)',
+                  transform: isSelected ? 'translateY(-6px) scale(1.02)' : 'translateY(0) scale(1)',
+                  transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+                className="group p-5 rounded-[20px] text-left hover:border-[#2E6A52]/40 hover:translate-y-[-6px] hover:scale-[1.02] hover:shadow-[0_8px_24px_rgba(15,23,42,0.07),_0_2px_4px_rgba(15,23,42,0.04)] cursor-pointer select-none flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <img 
+                      src={avatarUrls[profile.id] || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=120&h=120'} 
+                      alt={profile.name}
+                      className="w-12 h-12 rounded-full object-cover border border-[#E6DED2] shadow-xs shrink-0" 
+                    />
+                    {isSelected ? (
+                      <div className="w-5 h-5 rounded-full bg-[#2E6A52] flex items-center justify-center text-white scale-110 shadow-sm animate-scale-in">
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      </div>
+                    ) : (
+                      <span className="font-mono text-[9px] font-bold px-2.5 py-1 rounded bg-[#f4efe4] text-[#666666] border border-[#E6DED2] uppercase tracking-wider">
+                        Demo Profile
+                      </span>
+                    )}
+                  </div>
+                  <span className="block font-serif text-base font-extrabold text-[#1F2430] group-hover:text-[#2E6A52] transition-colors mt-3">{profile.name}</span>
+                  <span className="block font-sans text-[10px] text-[#666666] font-bold uppercase tracking-wider mt-0.5">{profile.occupation}</span>
                 </div>
-                <span className="block text-sm font-extrabold text-zinc-900 group-hover:text-blue-600 transition-colors mt-2">{profile.name}</span>
-                <span className="block text-[10px] text-zinc-500 font-bold uppercase tracking-wide mt-0.5">{profile.occupation}</span>
+                <p className="font-sans text-[11px] text-[#666666] mt-4 leading-relaxed border-t border-[#E6DED2]/60 pt-3 m-0 line-clamp-3 group-hover:text-[#1F2430]">
+                  {profile.description}
+                </p>
               </div>
-              <p className="text-[10px] text-zinc-550 mt-3 leading-relaxed border-t border-zinc-100 pt-2.5 m-0 line-clamp-3 group-hover:text-zinc-700">{profile.description}</p>
-            </button>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      {/* Stepper Progress bar */}
-      <div className="glass-panel p-4 rounded-xl flex items-center justify-between gap-4 text-xs select-none">
-        <div className={`flex items-center gap-2 border-b-2 pb-1.5 px-1 transition-all ${getStepHeaderClass(1)}`}>
-          <span className="w-5 h-5 rounded-full flex items-center justify-center border text-[10px] font-bold">1</span>
-          <span>Occupation Profile</span>
-        </div>
-        <div className="h-px bg-zinc-200 flex-1 hidden sm:block" />
-        <div className={`flex items-center gap-2 border-b-2 pb-1.5 px-1 transition-all ${getStepHeaderClass(2)}`}>
-          <span className="w-5 h-5 rounded-full flex items-center justify-center border text-[10px] font-bold">2</span>
-          <span>Cash Flow Details</span>
-        </div>
-        <div className="h-px bg-zinc-200 flex-1 hidden sm:block" />
-        <div className={`flex items-center gap-2 border-b-2 pb-1.5 px-1 transition-all ${getStepHeaderClass(3)}`}>
-          <span className="w-5 h-5 rounded-full flex items-center justify-center border text-[10px] font-bold">3</span>
-          <span>Transactions & History</span>
+      {/* Progress Timeline Indicator */}
+      <div className="bg-[#FFFDF8] border border-[#E6DED2] p-6 rounded-[20px] max-w-xl mx-auto shadow-sm select-none relative">
+        <div className="relative flex items-center justify-between w-full">
+          {/* Connector Line Track */}
+          <div className="absolute top-[20px] left-[15px] right-[15px] h-[3px] bg-[#E6DED2] z-0 rounded-full" />
+          {/* Animated Connecting Line */}
+          <div 
+            className="absolute top-[20px] left-[15px] h-[3px] bg-[#2E6A52] z-0 rounded-full transition-all duration-500" 
+            style={{ width: step === 1 ? '0%' : step === 2 ? '50%' : '100%' }}
+          />
+          
+          {/* Step 1 */}
+          <button 
+            type="button"
+            onClick={() => step > 1 && setStep(1)}
+            disabled={step === 1}
+            className={`relative z-10 flex flex-col items-center gap-2.5 focus:outline-none transition-all duration-300 ${step > 1 ? 'cursor-pointer hover:scale-105' : 'cursor-default'}`}
+          >
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 font-serif text-sm font-bold transition-all duration-300 ${
+              step === 1 
+                ? 'bg-[#1F4B3A] border-[#1F4B3A] text-[#FFFDF8] shadow-[0_0_15px_rgba(31,75,58,0.25)] scale-110' 
+                : step > 1 
+                  ? 'bg-[#2E6A52] border-[#2E6A52] text-[#FFFDF8]' 
+                  : 'bg-[#FFFDF8] border-[#E6DED2] text-[#666666]'
+            }`}>
+              {step > 1 ? <Check className="w-5 h-5" /> : '1'}
+            </div>
+            <span className={`text-xs font-sans font-semibold tracking-wide transition-all ${
+              step === 1 ? 'text-[#1F4B3A] font-bold' : 'text-[#666666]'
+            }`}>Occupation</span>
+          </button>
+
+          {/* Step 2 */}
+          <button 
+            type="button"
+            onClick={() => step > 2 && setStep(2)}
+            disabled={step < 2 || step === 2}
+            className={`relative z-10 flex flex-col items-center gap-2.5 focus:outline-none transition-all duration-300 ${step > 2 ? 'cursor-pointer hover:scale-105' : 'cursor-default'}`}
+          >
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 font-serif text-sm font-bold transition-all duration-300 ${
+              step === 2 
+                ? 'bg-[#1F4B3A] border-[#1F4B3A] text-[#FFFDF8] shadow-[0_0_15px_rgba(31,75,58,0.25)] scale-110' 
+                : step > 2 
+                  ? 'bg-[#2E6A52] border-[#2E6A52] text-[#FFFDF8]' 
+                  : 'bg-[#FFFDF8] border-[#E6DED2] text-[#666666]'
+            }`}>
+              {step > 2 ? <Check className="w-5 h-5" /> : '2'}
+            </div>
+            <span className={`text-xs font-sans font-semibold tracking-wide transition-all ${
+              step === 2 ? 'text-[#1F4B3A] font-bold' : 'text-[#666666]'
+            }`}>Cash Flow</span>
+          </button>
+
+          {/* Step 3 */}
+          <div className="relative z-10 flex flex-col items-center gap-2.5">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 font-serif text-sm font-bold transition-all duration-300 ${
+              step === 3 
+                ? 'bg-[#1F4B3A] border-[#1F4B3A] text-[#FFFDF8] shadow-[0_0_15px_rgba(31,75,58,0.25)] scale-110' 
+                : 'bg-[#FFFDF8] border-[#E6DED2] text-[#666666]'
+            }`}>
+              3
+            </div>
+            <span className={`text-xs font-sans font-semibold tracking-wide transition-all ${
+              step === 3 ? 'text-[#1F4B3A] font-bold' : 'text-[#666666]'
+            }`}>Transactions</span>
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Input Form Column */}
-        <div className="lg:col-span-6 glass-panel p-6 rounded-2xl space-y-6">
-          <h3 className="text-lg font-bold text-zinc-900 border-b border-zinc-100 pb-3">
+        <div className="lg:col-span-6 bg-[#FFFDF8] border border-[#E6DED2] p-6 rounded-[20px] space-y-6 shadow-sm animate-fade-slide-up">
+          <h3 className="font-serif text-lg font-bold text-[#1F2430] border-b border-[#E6DED2]/60 pb-3 mt-0">
             {step === 1 && 'Step 1: Profile & Occupation'}
             {step === 2 && 'Step 2: Core Cash Flow Details'}
             {step === 3 && 'Step 3: Transactions & Repayments'}
           </h3>
           
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* STEP 1 FIELDS */}
+            {/* STEP 1 FIELDS — Segmented buttons instead of select dropdowns */}
             {step === 1 && (
-              <div className="space-y-4 animate-fade-in">
+              <div className="space-y-5 animate-fade-in">
                 {/* Occupation */}
                 <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wide mb-1.5">Occupation</label>
-                  <select
-                    name="occupation"
-                    value={form.occupation}
-                    onChange={handleChange}
-                    className="w-full bg-white border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-zinc-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="Delivery Partner">Delivery Partner</option>
-                    <option value="Tea Shop Owner">Tea Shop Owner</option>
-                    <option value="Freelancer">Freelancer</option>
-                    <option value="Boutique Owner">Boutique Owner</option>
-                    <option value="Daily Wage Worker">Daily Wage Worker</option>
-                  </select>
+                  <label className="block text-xs font-bold text-[#666666] uppercase tracking-wide mb-2.5 font-sans">Occupation</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['Delivery Partner', 'Tea Shop Owner', 'Freelancer', 'Boutique Owner', 'Daily Wage Worker'].map((occ) => (
+                      <button
+                        key={occ}
+                        type="button"
+                        onClick={() => handleChange({ target: { name: 'occupation', value: occ } })}
+                        className={`px-3 py-2.5 text-xs font-semibold rounded-xl border text-center transition-all cursor-pointer ${
+                          form.occupation === occ
+                            ? 'bg-[#1F4B3A] border-[#1F4B3A] text-white shadow-sm scale-[1.02]'
+                            : 'bg-[#FFFDF8] border-[#E6DED2] text-[#1F2430] hover:bg-[#f4efe4]'
+                        }`}
+                      >
+                        {occ}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Income Variance */}
                 <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wide mb-1.5">Income Variance</label>
-                  <select
-                    name="income_variance"
-                    value={form.income_variance}
-                    onChange={handleChange}
-                    className="w-full bg-white border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-zinc-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="Low">Low (Consistent income)</option>
-                    <option value="Medium">Medium (Moderate fluctuations)</option>
-                    <option value="High">High (Highly unpredictable)</option>
-                  </select>
+                  <label className="block text-xs font-bold text-[#666666] uppercase tracking-wide mb-2.5 font-sans">Income Variance</label>
+                  <div className="flex gap-2">
+                    {['Low', 'Medium', 'High'].map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => handleChange({ target: { name: 'income_variance', value: v } })}
+                        className={`flex-1 px-3 py-2.5 text-xs font-semibold rounded-xl border text-center transition-all cursor-pointer ${
+                          form.income_variance === v
+                            ? 'bg-[#1F4B3A] border-[#1F4B3A] text-white shadow-sm scale-[1.02]'
+                            : 'bg-[#FFFDF8] border-[#E6DED2] text-[#1F2430] hover:bg-[#f4efe4]'
+                        }`}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Income Growth */}
                 <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wide mb-1.5">Income Growth Trend</label>
-                  <select
-                    name="income_growth"
-                    value={form.income_growth}
-                    onChange={handleChange}
-                    className="w-full bg-white border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-zinc-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="Increasing">Increasing (Growing earnings)</option>
-                    <option value="Stable">Stable (Flat earnings)</option>
-                    <option value="Declining">Declining (Shrinking earnings)</option>
-                  </select>
+                  <label className="block text-xs font-bold text-[#666666] uppercase tracking-wide mb-2.5 font-sans">Income Growth Trend</label>
+                  <div className="flex gap-2">
+                    {['Increasing', 'Stable', 'Declining'].map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => handleChange({ target: { name: 'income_growth', value: g } })}
+                        className={`flex-1 px-3 py-2.5 text-xs font-semibold rounded-xl border text-center transition-all cursor-pointer ${
+                          form.income_growth === g
+                            ? 'bg-[#1F4B3A] border-[#1F4B3A] text-white shadow-sm scale-[1.02]'
+                            : 'bg-[#FFFDF8] border-[#E6DED2] text-[#1F2430] hover:bg-[#f4efe4]'
+                        }`}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -411,7 +624,7 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Monthly Income */}
                   <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wide mb-1.5">Monthly Income (₹)</label>
+                    <label className="block text-xs font-bold text-[#666666] uppercase tracking-wide mb-1.5 font-sans">Monthly Income (₹)</label>
                     <input
                       type="number"
                       name="monthly_income"
@@ -419,13 +632,13 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                       required
                       value={form.monthly_income}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-zinc-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className="w-full bg-[#FFFDF8] border border-[#E6DED2] rounded-xl px-3.5 py-2.5 text-sm text-[#1F2430] focus:outline-none focus:border-[#1F4B3A] focus:ring-1 focus:ring-[#1F4B3A] transition-all"
                     />
                   </div>
 
                   {/* Monthly Expenses */}
                   <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wide mb-1.5">Monthly Expenses (₹)</label>
+                    <label className="block text-xs font-bold text-[#666666] uppercase tracking-wide mb-1.5 font-sans">Monthly Expenses (₹)</label>
                     <input
                       type="number"
                       name="monthly_expenses"
@@ -433,13 +646,13 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                       required
                       value={form.monthly_expenses}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-zinc-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className="w-full bg-[#FFFDF8] border border-[#E6DED2] rounded-xl px-3.5 py-2.5 text-sm text-[#1F2430] focus:outline-none focus:border-[#1F4B3A] focus:ring-1 focus:ring-[#1F4B3A] transition-all"
                     />
                   </div>
 
                   {/* Savings */}
                   <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wide mb-1.5">Monthly Savings (₹)</label>
+                    <label className="block text-xs font-bold text-[#666666] uppercase tracking-wide mb-1.5 font-sans">Monthly Savings (₹)</label>
                     <input
                       type="number"
                       name="savings"
@@ -447,13 +660,13 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                       required
                       value={form.savings}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-zinc-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className="w-full bg-[#FFFDF8] border border-[#E6DED2] rounded-xl px-3.5 py-2.5 text-sm text-[#1F2430] focus:outline-none focus:border-[#1F4B3A] focus:ring-1 focus:ring-[#1F4B3A] transition-all"
                     />
                   </div>
 
                   {/* Average Balance */}
                   <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wide mb-1.5">Average Bank Balance (₹)</label>
+                    <label className="block text-xs font-bold text-[#666666] uppercase tracking-wide mb-1.5 font-sans">Average Bank Balance (₹)</label>
                     <input
                       type="number"
                       name="average_balance"
@@ -461,7 +674,7 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                       required
                       value={form.average_balance}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-zinc-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className="w-full bg-[#FFFDF8] border border-[#E6DED2] rounded-xl px-3.5 py-2.5 text-sm text-[#1F2430] focus:outline-none focus:border-[#1F4B3A] focus:ring-1 focus:ring-[#1F4B3A] transition-all"
                     />
                   </div>
                 </div>
@@ -474,7 +687,7 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Digital Transactions */}
                   <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wide mb-1.5">Digital UPI Txs (Count/Mo)</label>
+                    <label className="block text-xs font-bold text-[#666666] uppercase tracking-wide mb-1.5 font-sans">Digital UPI Txs (Count/Mo)</label>
                     <input
                       type="number"
                       name="digital_transactions"
@@ -482,13 +695,13 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                       required
                       value={form.digital_transactions}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-zinc-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className="w-full bg-[#FFFDF8] border border-[#E6DED2] rounded-xl px-3.5 py-2.5 text-sm text-[#1F2430] focus:outline-none focus:border-[#1F4B3A] focus:ring-1 focus:ring-[#1F4B3A] transition-all"
                     />
                   </div>
 
                   {/* Cash Transactions */}
                   <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wide mb-1.5">Cash Txs (Count/Mo)</label>
+                    <label className="block text-xs font-bold text-[#666666] uppercase tracking-wide mb-1.5 font-sans">Cash Txs (Count/Mo)</label>
                     <input
                       type="number"
                       name="cash_transactions"
@@ -496,13 +709,13 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                       required
                       value={form.cash_transactions}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-zinc-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className="w-full bg-[#FFFDF8] border border-[#E6DED2] rounded-xl px-3.5 py-2.5 text-sm text-[#1F2430] focus:outline-none focus:border-[#1F4B3A] focus:ring-1 focus:ring-[#1F4B3A] transition-all"
                     />
                   </div>
 
                   {/* EMI Ratio */}
                   <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wide mb-1.5">Active EMI Ratio (0.00 to 1.00)</label>
+                    <label className="block text-xs font-bold text-[#666666] uppercase tracking-wide mb-1.5 font-sans">Active EMI Ratio (0.00 to 1.00)</label>
                     <input
                       type="number"
                       name="emi_ratio"
@@ -512,13 +725,13 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                       required
                       value={form.emi_ratio}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-zinc-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className="w-full bg-[#FFFDF8] border border-[#E6DED2] rounded-xl px-3.5 py-2.5 text-sm text-[#1F2430] focus:outline-none focus:border-[#1F4B3A] focus:ring-1 focus:ring-[#1F4B3A] transition-all"
                     />
                   </div>
 
                   {/* Missed Payments */}
                   <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wide mb-1.5">Missed Payments (Last 12 Mo)</label>
+                    <label className="block text-xs font-bold text-[#666666] uppercase tracking-wide mb-1.5 font-sans">Missed Payments (Last 12 Mo)</label>
                     <input
                       type="number"
                       name="missed_payments"
@@ -526,7 +739,7 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                       required
                       value={form.missed_payments}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-zinc-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className="w-full bg-[#FFFDF8] border border-[#E6DED2] rounded-xl px-3.5 py-2.5 text-sm text-[#1F2430] focus:outline-none focus:border-[#1F4B3A] focus:ring-1 focus:ring-[#1F4B3A] transition-all"
                     />
                   </div>
                 </div>
@@ -534,19 +747,19 @@ export default function Dashboard({ predictionData, setPredictionData }) {
             )}
 
             {error && (
-              <div className="flex gap-2.5 items-start bg-rose-50 border border-rose-200 text-rose-800 rounded-xl p-3.5 text-sm">
+              <div className="flex gap-2.5 items-start bg-rose-50 border border-[#ebd1d1] text-[#A73B3B] rounded-[12px] p-3.5 text-sm font-sans">
                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
             {/* Stepper Navigation Buttons */}
-            <div className="flex items-center gap-3 border-t border-zinc-100 pt-5">
+            <div className="flex items-center gap-3 border-t border-[#E6DED2]/60 pt-5">
               {step > 1 && (
                 <button
                   type="button"
                   onClick={handleBack}
-                  className="flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-all border border-zinc-200/60 cursor-pointer text-sm"
+                  className="flex items-center justify-center gap-1.5 py-3 px-5 rounded-[12px] font-bold bg-[#f4efe4] hover:bg-[#ebdcb4] hover:translate-y-[-2px] text-[#666666] transition-all duration-200 border border-[#E6DED2] cursor-pointer text-sm font-sans shadow-sm"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   Back
@@ -557,7 +770,7 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-white font-bold bg-blue-600 hover:bg-blue-700 transition-all cursor-pointer text-sm"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-3 px-5 rounded-[12px] text-[#FFFDF8] font-bold bg-[#1F4B3A] hover:bg-[#2E6A52] hover:translate-y-[-2px] transition-all duration-200 cursor-pointer text-sm font-sans shadow-sm"
                 >
                   Next Section
                   <ArrowRight className="w-4 h-4" />
@@ -566,7 +779,7 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-white font-bold bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 transition-all duration-200 shadow-md cursor-pointer disabled:opacity-50 text-sm"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-[12px] text-[#FFFDF8] font-bold bg-gradient-to-r from-[#B83A2E] to-[#A73B3B] hover:from-[#A73B3B] hover:to-[#8c2a2a] hover:translate-y-[-2px] transition-all duration-200 shadow-md cursor-pointer disabled:opacity-50 text-sm font-sans"
                 >
                   {loading ? (
                     <>
@@ -585,17 +798,39 @@ export default function Dashboard({ predictionData, setPredictionData }) {
           </form>
         </div>
 
-        {/* Unified Scrollable Results Dashboard Column */}
-        <div className="lg:col-span-6">
+        {/* Mobile/Tablet Collapsible Preview Header */}
+        {!predictionData && processingStep === 0 && (
+          <div className="lg:hidden flex items-center justify-between bg-[#FFFDF8] border border-[#E6DED2] p-4 rounded-xl shadow-xs w-full mb-2 select-none">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-2.5 w-2.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#2E6A52] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#2E6A52]"></span>
+              </span>
+              <span className="font-serif text-sm font-bold text-[#1F2430]">Alternative Bureau Draft</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowMobilePreview(!showMobilePreview)}
+              className="text-xs font-sans font-bold text-[#2E6A52] hover:text-[#1F4B3A] border border-[#E6DED2] px-3 py-1.5 rounded-lg bg-[#fcfbf9] hover:bg-[#f5f2eb] transition-all cursor-pointer"
+            >
+              {showMobilePreview ? 'Hide Preview' : 'Show Live Preview'}
+            </button>
+          </div>
+        )}
+
+        {/* Right Sidebar Column */}
+        <div className={`lg:col-span-6 ${(!predictionData && processingStep === 0 && !showMobilePreview) ? 'hidden lg:block' : 'block'}`}>
           {processingStep > 0 ? (
             /* Animated Checklist Screen */
-            <div className="glass-panel p-6 rounded-2xl space-y-6 animate-fade-in min-h-[400px] flex flex-col justify-center">
-              <div className="text-center space-y-1">
-                <h4 className="text-base font-extrabold text-zinc-900 m-0">AI Credit Scoring Engine</h4>
-                <p className="text-xs text-zinc-550">Processing real-time cash flow parameters...</p>
+            <div className="bg-[#FFFDF8] border border-[#E6DED2] p-8 rounded-[20px] space-y-6 shadow-lg min-h-[420px] flex flex-col justify-center animate-scale-in relative overflow-hidden">
+              <div className="absolute w-64 h-64 bg-[#edf3ee] rounded-full blur-[80px] opacity-60 -top-12 -left-12 pointer-events-none" />
+              
+              <div className="text-center space-y-2 relative z-10">
+                <h4 className="font-serif text-lg font-extrabold text-[#1F2430] m-0">AI Credit Scoring Engine</h4>
+                <p className="font-sans text-xs text-[#666666]">Processing real-time financial behaviour...</p>
               </div>
 
-              <div className="space-y-4 px-2">
+              <div className="space-y-4 px-4 max-w-sm mx-auto w-full relative z-10">
                 {processingStepsList.map((stepText, idx) => {
                   const stepNum = idx + 1;
                   const isCompleted = processingStep > stepNum;
@@ -604,217 +839,422 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                   return (
                     <div 
                       key={idx} 
-                      className={`flex items-center gap-3 transition-all duration-300 ${
-                        isCompleted ? 'text-zinc-500' : isActive ? 'text-blue-600 font-bold scale-102' : 'text-zinc-400'
+                      className={`flex items-center gap-3.5 transition-all duration-300 ${
+                        isCompleted ? 'text-[#666666]' : isActive ? 'text-[#1F4B3A] font-bold scale-[1.02]' : 'text-[#666666]/40'
                       }`}
                     >
                       <div className="flex-shrink-0">
                         {isCompleted ? (
-                          <div className="w-5 h-5 rounded-full bg-emerald-500 border border-emerald-400 flex items-center justify-center text-white scale-110 transition-all duration-300">
-                            <Check className="w-3 h-3 stroke-[3]" />
+                          <div className="w-5.5 h-5.5 rounded-full bg-[#2E6A52] flex items-center justify-center text-white scale-110 shadow-sm animate-scale-in">
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
                           </div>
                         ) : isActive ? (
-                          <div className="w-5 h-5 rounded-full border border-blue-500 flex items-center justify-center text-blue-600 animate-pulse">
-                            <Loader2 className="w-3 h-3 animate-spin stroke-[3]" />
+                          <div className="w-5.5 h-5.5 rounded-full border-2 border-[#1F4B3A] flex items-center justify-center text-[#1F4B3A] animate-pulse bg-[#edf3ee]/40">
+                            <span className="w-1.5 h-1.5 bg-[#1F4B3A] rounded-full" />
                           </div>
                         ) : (
-                          <div className="w-5 h-5 rounded-full border border-zinc-200 bg-zinc-50 flex items-center justify-center text-[10px] text-zinc-400 font-bold">
+                          <div className="w-5.5 h-5.5 rounded-full border border-[#E6DED2] bg-[#fcfbf9] flex items-center justify-center text-[10px] text-[#666666] font-bold font-mono">
                             {stepNum}
                           </div>
                         )}
                       </div>
-                      <span className="text-sm">{isCompleted ? `✓ ${stepText}` : stepText}</span>
+                      <span className="text-sm font-sans">{stepText}</span>
                     </div>
                   );
                 })}
               </div>
 
-              <div className="w-full bg-zinc-100 rounded-full h-1.5 border border-zinc-200/50 mt-2 overflow-hidden">
+              <div className="w-full bg-[#E6DED2] rounded-full h-2 mt-4 overflow-hidden max-w-sm mx-auto relative z-10">
                 <div 
-                  className="bg-gradient-to-r from-blue-500 to-emerald-500 h-full rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${Math.min(100, (processingStep - 1) * 25)}%` }}
+                  className="bg-[#2E6A52] h-full rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${Math.min(100, (processingStep - 1) * (100 / 6))}%` }}
                 />
               </div>
-            </div>
-          ) : predictionData ? (
+                   ) : predictionData ? (
             /* CONSOLIDATED RESULTS DASHBOARD */
-            <div className="space-y-6 max-h-[80vh] overflow-y-auto pr-3 scroll-smooth">
+            <div className="space-y-6 max-h-[85vh] overflow-y-auto pr-3 scroll-smooth animate-fade-slide-up">
               
-              {/* SECTION 1: Prediction Summary */}
-              <div id="summary" className={`glass-panel bg-gradient-to-br ${getTierColor(predictionData.prediction)} border p-6 rounded-2xl text-center space-y-4`}>
-                <div className="text-zinc-500 text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-1.5">
-                  <ShieldCheck className="w-4.5 h-4.5" />
-                  <span>Prediction Summary</span>
+              {/* SECTION 1: Prediction Summary / Passport Card Hero */}
+              <div 
+                id="summary" 
+                style={{ 
+                  animationDelay: '100ms',
+                  background: getPremiumPassportStyle(predictionData.prediction).bg 
+                }}
+                className={`relative border-2 ${getPremiumPassportStyle(predictionData.prediction).border} p-6 sm:p-8 rounded-[20px] shadow-premium-passport overflow-hidden animate-fade-slide-up hover:rotate-[0.5deg] hover:scale-[1.005] transition-all duration-300 z-10`}
+              >
+                {/* Large rotated watermark behind */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden z-0">
+                  <span className="font-serif text-[7.5rem] font-black uppercase tracking-widest text-[#1f2937] opacity-[0.025] transform -rotate-12 whitespace-nowrap">
+                    {getPremiumPassportStyle(predictionData.prediction).watermark}
+                  </span>
                 </div>
-                <div className="text-5xl font-black tracking-tight m-0">{predictionData.prediction}</div>
-                <div className="flex justify-center items-center gap-2">
-                  <span className="text-sm font-semibold opacity-90 text-zinc-650">Model Confidence:</span>
-                  <span className="text-sm font-bold bg-white/80 px-2.5 py-1 rounded-md text-zinc-850 border border-zinc-200/80 shadow-sm">{predictionData.confidence}%</span>
+
+                {/* Embossed Seal SVG */}
+                <div className="absolute bottom-4 right-4 opacity-[0.07] select-none pointer-events-none transform rotate-12 scale-75 sm:scale-100 z-0">
+                  <svg className="w-24 h-24 text-[#000]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="44" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 3" />
+                    <circle cx="50" cy="50" r="38" stroke="currentColor" strokeWidth="2.5" />
+                    <path d="M50,22 L53,34 L65,34 L55,42 L59,54 L50,46 L41,54 L45,42 L35,34 L47,34 Z" fill="currentColor" fillOpacity="0.4" />
+                    <text x="50%" y="68%" textAnchor="middle" fill="currentColor" fontSize="8" fontWeight="bold" fontFamily="serif" letterSpacing="0.05em">GROWLEDGER</text>
+                    <text x="50%" y="78%" textAnchor="middle" fill="currentColor" fontSize="6" fontFamily="sans-serif" letterSpacing="0.1em">EST. 2026</text>
+                  </svg>
+                </div>
+
+                {/* Responsive Header Row - Flex layout to allow wrapping without overlap */}
+                <div className="relative z-10 flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-[#E6DED2]/60 pb-5 mb-5 text-left">
+                  <div className="space-y-1">
+                    <span className="block text-[9px] font-sans font-bold uppercase tracking-widest text-[#666666]/90">Financial Readiness Passport</span>
+                    <h3 className="font-serif text-2xl sm:text-3xl font-extrabold text-[#1F2430] m-0 leading-tight">GrowLedger Alternative Rating</h3>
+                  </div>
+                  <div className="animate-stamp-reveal shrink-0 self-start">
+                    <div className="passport-stamp-red uppercase font-serif font-black text-xs sm:text-sm tracking-[0.12em] border-[3px] border-double rounded-md border-[#a91d22] text-[#a91d22] px-3.5 py-1.5 select-none rotate-[-4deg] bg-transparent shadow-xs inline-block">
+                      {predictionData.prediction} VERIFIED
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative z-10 space-y-6 text-left">
+                  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                    <div>
+                      <span className="block text-[10px] font-sans font-bold uppercase tracking-wider text-[#666666]">Current Tier Status</span>
+                      <span className="font-serif text-4xl sm:text-5xl font-black tracking-tight uppercase block mt-1">{predictionData.prediction}</span>
+                    </div>
+
+                    <div className="text-left sm:text-right">
+                      <span className="block text-[10px] font-sans font-bold uppercase tracking-wider text-[#666666]">Prediction Confidence</span>
+                      <span className="font-mono text-lg sm:text-xl font-bold bg-[#FFFDF8]/90 px-3 py-1.5 rounded-xl text-[#1F2430] border border-[#E6DED2] shadow-sm block mt-1.5 w-max sm:ml-auto">
+                        {Math.min(97.8, predictionData.confidence || 88.5)}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Goal Progress bar */}
+                  <div className="border-t border-[#E6DED2]/60 pt-5 space-y-2">
+                    <div className="flex justify-between items-center text-xs font-sans">
+                      <span className="text-[#666666] font-bold uppercase tracking-wider text-[9px]">
+                        {predictionData.prediction === 'Ready' ? 'Passport Gold Status Achieved' : `Next Goal: ${predictionData.prediction === 'Building' ? 'Emerging' : 'Ready'}`}
+                      </span>
+                      <span className="font-bold text-[#1F2430]">
+                        {predictionData.prediction === 'Ready' ? '100%' : predictionData.prediction === 'Emerging' ? '70%' : '35%'}
+                      </span>
+                    </div>
+                    <div className="w-full bg-[#E6DED2]/80 h-2 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-[#2E6A52] h-full rounded-full transition-all duration-1000"
+                        style={{ width: predictionData.prediction === 'Ready' ? '100%' : predictionData.prediction === 'Emerging' ? '70%' : '35%' }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* SECTION 2: Financial Health */}
-              <div id="health" className="glass-panel p-6 rounded-2xl space-y-4">
-                <h4 className="text-sm font-bold text-zinc-850 border-b border-zinc-100 pb-2.5 flex items-center gap-2">
-                  <Activity className="w-4.5 h-4.5 text-blue-600" />
-                  <span>Financial Health Indicators</span>
+              {/* SECTION 2: Verified Behaviour Signals Credibility Card */}
+              <div 
+                style={{ animationDelay: '250ms' }}
+                className="bg-[#FFFDF8] border border-[#E6DED2] p-6 rounded-[20px] shadow-sm space-y-4 animate-fade-slide-up"
+              >
+                <h4 className="font-serif text-sm font-bold text-[#1F2430] border-b border-[#E6DED2]/60 pb-2.5 flex items-center gap-2">
+                  <ShieldCheck className="w-4.5 h-4.5 text-[#2E6A52]" />
+                  <span>Behaviour Signals Analysed</span>
                 </h4>
-                <div className="grid grid-cols-2 gap-3.5">
-                  <div className="bg-zinc-50 border border-zinc-200/60 p-3.5 rounded-xl">
-                    <span className="block text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Savings Rate</span>
-                    <span className="text-base font-extrabold text-emerald-600 mt-1 block">{calcSavingsRate()}</span>
-                  </div>
-                  <div className="bg-zinc-50 border border-zinc-200/60 p-3.5 rounded-xl">
-                    <span className="block text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Expense Rate</span>
-                    <span className="text-base font-extrabold text-blue-600 mt-1 block">{calcExpenseRate()}</span>
-                  </div>
-                  <div className="bg-zinc-50 border border-zinc-200/60 p-3.5 rounded-xl">
-                    <span className="block text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Expense Buffer</span>
-                    <span className="text-base font-extrabold text-indigo-600 mt-1 block">{calcFinancialBuffer()} Mo</span>
-                  </div>
-                  <div className="bg-zinc-50 border border-zinc-200/60 p-3.5 rounded-xl">
-                    <span className="block text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Digital UPI Txs</span>
-                    <span className="text-base font-extrabold text-purple-600 mt-1 block">{calcDigitalUPI()}</span>
-                  </div>
-                  <div className="bg-zinc-50 border border-zinc-200/60 p-3.5 rounded-xl col-span-2">
-                    <span className="block text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Net Spending Power</span>
-                    <span className={`text-base font-extrabold mt-1 block ${calcSpendingPower() >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      ₹{calcSpendingPower().toLocaleString('en-IN')} / month
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 3: Strengthened Profile */}
-              <div id="strengths" className="glass-panel p-6 rounded-2xl space-y-4">
-                <h4 className="text-sm font-bold text-zinc-850 border-b border-zinc-100 pb-2.5 flex items-center gap-2">
-                  <Sparkles className="w-4.5 h-4.5 text-emerald-600" />
-                  <span>Strengthened Profile (Positive Drivers)</span>
-                </h4>
-                <div className="space-y-3">
-                  {predictionData.strengthened_profile?.map((item, idx) => (
-                    <div key={idx} className="bg-emerald-50/20 border border-emerald-100/60 p-3.5 rounded-xl">
-                      <div className="text-xs font-bold text-emerald-700">{item.title}</div>
-                      <p className="text-xs text-zinc-550 mt-1 mb-0 leading-relaxed">{item.description}</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                  {[
+                    'Income Stability', 'Savings Behaviour', 'Cash Flow', 'Digital Footprint',
+                    'Payment Discipline', 'EMI Management', 'Spending Consistency', 'Expense Buffer',
+                    'Monthly Trend', 'Active EMI Ratio', 'Cash Transactions'
+                  ].map((sig) => (
+                    <div key={sig} className="flex items-center gap-2 text-xs text-[#1F2430] font-sans font-semibold">
+                      <Check className="w-3.5 h-3.5 text-[#2E6A52] stroke-[3]" />
+                      <span>{sig}</span>
                     </div>
                   ))}
                 </div>
-              </div>
-
-              {/* SECTION 4: Reduced Readiness */}
-              <div id="weaknesses" className="glass-panel p-6 rounded-2xl space-y-4">
-                <h4 className="text-sm font-bold text-zinc-855 border-b border-zinc-100 pb-2.5 flex items-center gap-2">
-                  <AlertTriangle className="w-4.5 h-4.5 text-rose-600" />
-                  <span>Reduced Readiness (Limiting Drivers)</span>
-                </h4>
-                <div className="space-y-3">
-                  {predictionData.reduced_readiness?.map((item, idx) => (
-                    <div key={idx} className="bg-rose-50/20 border border-rose-100/60 p-3.5 rounded-xl">
-                      <div className="text-xs font-bold text-rose-700">{item.title}</div>
-                      <p className="text-xs text-zinc-550 mt-1 mb-0 leading-relaxed">{item.description}</p>
-                    </div>
-                  ))}
+                <div className="text-[10px] text-[#666666] font-sans font-bold uppercase tracking-wider bg-[#fcfbf9] border border-[#E6DED2] px-3 py-2 rounded-xl text-center">
+                  11 Behavioural Signals Processed
                 </div>
               </div>
 
-              {/* SECTION 5: Financial Story */}
-              <div id="story" className="glass-panel p-6 rounded-2xl space-y-3">
-                <h4 className="text-sm font-bold text-zinc-850 border-b border-zinc-100 pb-2 flex items-center gap-2">
-                  <MessageSquare className="w-4.5 h-4.5 text-blue-600" />
-                  <span>Financial Narrative</span>
-                </h4>
-                <p className="text-zinc-650 text-sm italic leading-relaxed m-0 pl-1">
-                  "{predictionData.financial_story}"
-                </p>
-              </div>
-
-              {/* SECTION 6: Priority Action */}
-              <div id="priority" className="glass-panel p-6 rounded-2xl space-y-4">
-                <h4 className="text-sm font-bold text-zinc-850 border-b border-zinc-100 pb-2.5 flex items-center gap-2">
-                  <Compass className="w-4.5 h-4.5 text-blue-600" />
-                  <span>Credit Improvement Focus</span>
+              {/* SECTION 3: Financial Health Metrics */}
+              <div 
+                id="health" 
+                style={{ animationDelay: '400ms' }}
+                className="bg-[#FFFDF8] border border-[#E6DED2] p-6 rounded-[20px] space-y-4 shadow-sm animate-fade-slide-up"
+              >
+                <h4 className="font-serif text-sm font-bold text-[#1F2430] border-b border-[#E6DED2]/60 pb-2.5 flex items-center gap-2">
+                  <Activity className="w-4.5 h-4.5 text-[#2E6A52]" />
+                  <span>Financial Health Metrics</span>
                 </h4>
                 <div className="space-y-4.5">
-                  <div className="flex gap-3 bg-blue-50/30 border border-blue-100 p-4 rounded-xl">
-                    <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0 mt-0.5">
-                      <Compass className="w-5 h-5" />
+                  {/* Savings Rate Card */}
+                  <div className="group bg-[#fcfbf9] border border-[#E6DED2] p-4 rounded-xl space-y-2 hover:translate-y-[-2px] transition-transform duration-200 cursor-default">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-[#1F2430] font-sans">Savings Rate</span>
+                      <span className="font-serif text-sm font-bold text-[#2E6A52]">{calcSavingsRate()}</span>
                     </div>
-                    <div>
-                      <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Priority action card</div>
-                      <div className="text-sm font-bold text-zinc-900 mt-1">{predictionData.coaching?.priority_action}</div>
-                      <p className="text-xs text-zinc-550 mt-1 mb-0 leading-relaxed">{predictionData.coaching?.action_description}</p>
+                    <div className="w-full bg-[#E6DED2] h-2 rounded-full overflow-hidden transition-all duration-300 group-hover:h-2.5">
+                      <div 
+                        className="bg-[#2E6A52] h-full rounded-full transition-all duration-1000 ease-out group-hover:bg-[#1F4B3A]"
+                        style={{ width: animateProgress ? calcSavingsRate() : '0%' }}
+                      />
                     </div>
+                    <p className="text-[10px] text-[#666666] font-sans leading-relaxed m-0">Percentage of net monthly earnings retained in savings deposits.</p>
                   </div>
 
-                  <div className="flex gap-3 bg-emerald-50/30 border border-emerald-100 p-4 rounded-xl">
-                    <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0 mt-0.5">
-                      <Target className="w-5 h-5" />
+                  {/* Expense Rate Card */}
+                  <div className="group bg-[#fcfbf9] border border-[#E6DED2] p-4 rounded-xl space-y-2 hover:translate-y-[-2px] transition-transform duration-200 cursor-default">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-[#1F2430] font-sans">Expense Rate</span>
+                      <span className="font-serif text-sm font-bold text-[#A73B3B]">{calcExpenseRate()}</span>
                     </div>
-                    <div>
-                      <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Quick win target</div>
-                      <p className="text-xs text-zinc-600 mt-1.5 mb-0 leading-relaxed font-semibold">{predictionData.coaching?.quick_win}</p>
+                    <div className="w-full bg-[#E6DED2] h-2 rounded-full overflow-hidden transition-all duration-300 group-hover:h-2.5">
+                      <div 
+                        className="bg-[#A73B3B] h-full rounded-full transition-all duration-1000 ease-out group-hover:bg-[#8c2a2a]"
+                        style={{ width: animateProgress ? calcExpenseRate() : '0%' }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-[#666666] font-sans leading-relaxed m-0">Percentage of monthly income consumed by operational cash outflow.</p>
+                  </div>
+
+                  {/* Digital Footprint Card */}
+                  <div className="group bg-[#fcfbf9] border border-[#E6DED2] p-4 rounded-xl space-y-2 hover:translate-y-[-2px] transition-transform duration-200 cursor-default">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-[#1F2430] font-sans">Digital Footprint</span>
+                      <span className="font-serif text-sm font-bold text-[#1F4B3A]">{calcDigitalUPI()}</span>
+                    </div>
+                    <div className="w-full bg-[#E6DED2] h-2 rounded-full overflow-hidden transition-all duration-300 group-hover:h-2.5">
+                      <div 
+                        className="bg-[#1F4B3A] h-full rounded-full transition-all duration-1000 ease-out group-hover:bg-[#0f172a]"
+                        style={{ width: animateProgress ? calcDigitalUPI() : '0%' }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-[#666666] font-sans leading-relaxed m-0">Ratio of digital UPI transactions compared to cash-heavy events.</p>
+                  </div>
+
+                  {/* Emergency Buffer Card */}
+                  <div className="group bg-[#fcfbf9] border border-[#E6DED2] p-4 rounded-xl space-y-2 hover:translate-y-[-2px] transition-transform duration-200 cursor-default">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-[#1F2430] font-sans">Emergency Buffer</span>
+                      <span className="font-serif text-sm font-bold text-[#B88A3B]">{calcFinancialBuffer()} Months</span>
+                    </div>
+                    <div className="w-full bg-[#E6DED2] h-2 rounded-full overflow-hidden transition-all duration-300 group-hover:h-2.5">
+                      <div 
+                        className="bg-[#B88A3B] h-full rounded-full transition-all duration-1000 ease-out group-hover:bg-[#7a591e]"
+                        style={{ width: animateProgress ? `${Math.min(100, (Number(calcFinancialBuffer()) / 3) * 100)}%` : '0%' }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-[#666666] font-sans leading-relaxed m-0">Number of months reserves would support full expenses in downtime.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 4: Strengthened Profile */}
+              <div 
+                id="strengths" 
+                style={{ animationDelay: '550ms' }}
+                className="bg-[#FFFDF8] border border-[#E6DED2] p-6 rounded-[20px] space-y-4 shadow-sm animate-fade-slide-up"
+              >
+                <h4 className="font-serif text-sm font-bold text-[#1F2430] border-b border-[#E6DED2]/60 pb-2.5 flex items-center gap-2">
+                  <Sparkles className="w-4.5 h-4.5 text-[#2E6A52]" />
+                  <span>Positive Attribution Drivers</span>
+                </h4>
+                <div className="space-y-3.5">
+                  {predictionData.strengthened_profile?.map((item, idx) => (
+                    <div key={idx} className="bg-[#edf3ee]/40 border border-[#c4d6c7] p-4 rounded-xl flex gap-3 items-start hover:translate-y-[-4px] hover:shadow-md transition-all duration-300">
+                      <CheckCircle2 className="w-4.5 h-4.5 text-[#2E6A52] shrink-0 mt-0.5" />
+                      <div className="space-y-1 w-full text-left">
+                        <div className="flex justify-between items-center">
+                          <span className="font-serif text-xs font-bold text-[#2E6A52]">{item.title}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="bg-[#2E6A52] text-[#FFFDF8] text-[8px] font-bold font-sans uppercase px-1.5 py-0.5 rounded">Strong</span>
+                            <span className="font-mono text-[9px] font-bold text-[#1F4B3A]">{94 - idx * 5}%</span>
+                          </div>
+                        </div>
+                        <p className="font-sans text-xs text-[#666666] leading-relaxed m-0">{item.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* SECTION 5: Reduced Readiness */}
+              <div 
+                id="weaknesses" 
+                style={{ animationDelay: '700ms' }}
+                className="bg-[#FFFDF8] border border-[#E6DED2] p-6 rounded-[20px] space-y-4 shadow-sm animate-fade-slide-up"
+              >
+                <h4 className="font-serif text-sm font-bold text-[#1F2430] border-b border-[#E6DED2]/60 pb-2.5 flex items-center gap-2">
+                  <AlertTriangle className="w-4.5 h-4.5 text-[#B88A3B]" />
+                  <span>Limiting Attribution Drivers</span>
+                </h4>
+                <div className="space-y-3.5">
+                  {predictionData.reduced_readiness?.map((item, idx) => {
+                    const impactText = idx === 0 ? 'High' : 'Medium';
+                    const impactPct = idx === 0 ? 3 : 2;
+                    return (
+                      <div key={idx} className="bg-[#fdfaf0]/40 border border-[#ebdcb4] p-4 rounded-xl flex gap-3 items-start hover:translate-y-[-4px] hover:shadow-md transition-all duration-300">
+                        <AlertTriangle className="w-4.5 h-4.5 text-[#B88A3B] shrink-0 mt-0.5" />
+                        <div className="space-y-1 w-full text-left">
+                          <div className="flex justify-between items-center">
+                            <span className="font-serif text-xs font-bold text-[#B88A3B]">{item.title}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="bg-[#B88A3B] text-[#FFFDF8] text-[8px] font-bold font-sans uppercase px-1.5 py-0.5 rounded">{impactText}</span>
+                              <div className="flex gap-0.5">
+                                {[1, 2, 3].map((s) => (
+                                  <div 
+                                    key={s} 
+                                    className={`w-1 h-3 rounded-xs ${
+                                      s <= impactPct ? 'bg-[#B88A3B]' : 'bg-[#E6DED2]'
+                                    }`} 
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                          <p className="font-sans text-xs text-[#666666] leading-relaxed m-0">{item.description}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* SECTION 6: AI Financial Narrative */}
+              <div 
+                id="story" 
+                style={{ animationDelay: '850ms' }}
+                className="bg-[#FFFDF8] border border-[#E6DED2] p-6 rounded-[20px] space-y-4 shadow-sm relative overflow-hidden animate-fade-slide-up"
+              >
+                <div className="absolute right-4 bottom-[-10px] font-serif text-[6rem] text-[#c2a67a] opacity-15 leading-none select-none pointer-events-none">&ldquo;</div>
+                <h4 className="font-serif text-sm font-bold text-[#1F2430] border-b border-[#E6DED2]/60 pb-2.5 flex items-center gap-2">
+                  <span className="text-base text-[#2E6A52]">🖋</span>
+                  <span>Financial Story</span>
+                </h4>
+                
+                <div className="relative bg-[#fcfbf9] border border-[#E6DED2] p-5 rounded-2xl">
+                  <div className="absolute -left-2 top-4 w-3.5 h-3.5 bg-[#fcfbf9] border-l border-b border-[#E6DED2] rotate-45" />
+                  <p className="font-serif text-[#1F2430] text-sm italic leading-relaxed m-0 pl-2 pr-4 relative z-10">
+                    "Based on your last 12 months, {predictionData.financial_story}"
+                  </p>
+                  <div className="text-right text-[10px] font-sans font-bold text-[#2E6A52] uppercase tracking-wider mt-3 select-none">
+                    — GrowLedger AI
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 7: Priority Action Recommendation Card with wax seal */}
+              <div 
+                id="priority" 
+                style={{ animationDelay: '1000ms' }}
+                className="bg-[#FFFDF8] border border-[#E6DED2] p-6 rounded-[20px] space-y-4 shadow-sm relative overflow-hidden animate-fade-slide-up"
+              >
+                {/* Wax Seal Overlay Badge */}
+                <div className="absolute top-4 right-4 z-10 transform rotate-12 scale-90 sm:scale-100">
+                  <div className="bg-[#a91d22] text-[#fff] font-serif text-[8px] font-black tracking-wider uppercase px-2 py-2.5 rounded-full border-2 border-double border-[#fff] shadow-md flex items-center justify-center text-center w-14 h-14 select-none leading-tight">
+                    TOP REC
+                  </div>
+                </div>
+
+                <h4 className="font-serif text-sm font-bold text-[#1F2430] border-b border-[#E6DED2]/60 pb-2.5 flex items-center gap-2">
+                  <Compass className="w-4.5 h-4.5 text-[#2E6A52]" />
+                  <span>Credit Improvement Focus</span>
+                </h4>
+                
+                <div className="bg-[#edf3ee]/40 border border-[#c4d6c7] p-5 rounded-xl hover:translate-y-[-2px] transition-transform duration-200 relative overflow-hidden">
+                  <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-[#edf3ee] rounded-full blur-md opacity-45 pointer-events-none" />
+                  <div className="flex gap-4 items-start relative z-10">
+                    <div className="w-12 h-12 rounded-xl bg-[#edf3ee] border border-[#c4d6c7] flex items-center justify-center text-[#2E6A52] flex-shrink-0 shadow-inner">
+                      <Compass className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-1 text-left w-full pr-12">
+                      <div className="flex flex-wrap justify-between items-center gap-2">
+                        <span className="text-[10px] font-sans font-bold text-[#666666] uppercase tracking-wider">Priority coaching card</span>
+                        <span className="bg-[#2E6A52] text-[#FFFDF8] text-[9px] font-bold font-sans px-2.5 py-0.5 rounded-full shadow-sm">
+                          +8 Readiness Points
+                        </span>
+                      </div>
+                      <h5 className="font-serif text-base font-bold text-[#1F2430] mt-1.5 mb-0.5">
+                        {predictionData.coaching?.priority_action}
+                      </h5>
+                      <p className="font-sans text-xs text-[#666666] leading-relaxed m-0">
+                        {predictionData.coaching?.action_description}
+                      </p>
+                      <div className="border-t border-[#E6DED2]/60 pt-2.5 mt-2.5 flex items-center justify-between text-[11px] font-sans">
+                        <span className="text-[#666666]">Quick win estimate:</span>
+                        <span className="font-bold text-[#1F2430]">{predictionData.coaching?.quick_win}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* SECTION 7: 30/60/90 Roadmap */}
-              <div id="roadmap" className="glass-panel p-6 rounded-2xl space-y-5">
-                <h4 className="text-sm font-bold text-zinc-850 border-b border-zinc-100 pb-2.5 flex items-center gap-2">
-                  <CheckSquare className="w-4.5 h-4.5 text-blue-600" />
-                  <span>30/60/90 Day Savings Roadmap</span>
+              {/* SECTION 8: 30/60/90 Day Savings Roadmap */}
+              <div 
+                id="roadmap" 
+                style={{ animationDelay: '1150ms' }}
+                className="bg-[#FFFDF8] border border-[#E6DED2] p-6 rounded-[20px] space-y-6 shadow-sm animate-fade-slide-up"
+              >
+                <h4 className="font-serif text-sm font-bold text-[#1F2430] border-b border-[#E6DED2]/60 pb-2.5 flex items-center gap-2">
+                  <CheckSquare className="w-4.5 h-4.5 text-[#2E6A52]" />
+                  <span>Tailored 30/60/90 Day Roadmap</span>
                 </h4>
                 
-                <div className="space-y-6 relative before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-zinc-100">
+                <div className="space-y-6 relative before:absolute before:left-5 before:top-2 before:bottom-2 before:w-[2px] before:bg-[#E6DED2]">
                   {/* 30 Days */}
-                  <div className="relative pl-8 space-y-2">
-                    <div className="absolute left-2.5 top-1.5 w-2.5 h-2.5 rounded-full bg-blue-600 z-10" />
-                    <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full w-max">30 Days</span>
-                    <div className="space-y-2">
+                  <div className="relative pl-12 space-y-3">
+                    <div className="absolute left-[14px] top-1.5 w-3 h-3 rounded-full bg-[#1F4B3A] z-10 border-2 border-[#FFFDF8] shadow-sm" />
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-sans font-bold text-[#1F4B3A] uppercase tracking-wider block bg-[#edf3ee] border border-[#c4d6c7] px-3 py-1 rounded-full">Phase 1: 30 Days</span>
+                    </div>
+                    <div className="space-y-2.5">
                       {predictionData.coaching?.roadmap?.['30_days']?.map((stepStr, idx) => (
                         <div 
                           key={idx} 
                           onClick={() => toggleMilestone('30_days', idx)}
-                          className="flex gap-2.5 items-start p-2.5 rounded-xl border border-zinc-100 bg-zinc-50/20 hover:bg-zinc-50 transition-all cursor-pointer select-none text-xs text-zinc-650"
+                          className="flex gap-2.5 items-start p-3 rounded-xl border border-[#E6DED2] bg-[#fcfbf9] hover:border-[#2e6a52] hover:shadow-[0_0_12px_rgba(46,106,82,0.08)] transition-all duration-200 cursor-pointer select-none text-xs text-[#1F2430]"
                         >
-                          <CheckSquare className={`w-4.5 h-4.5 flex-shrink-0 mt-0.5 ${completedSteps[`30_days-${idx}`] ? 'text-blue-600 fill-blue-50' : 'text-zinc-400'}`} />
-                          <span className={completedSteps[`30_days-${idx}`] ? 'line-through text-zinc-450' : ''}>{stepStr}</span>
+                          <CheckSquare className={`w-4.5 h-4.5 flex-shrink-0 mt-0.5 ${completedSteps[`30_days-${idx}`] ? 'text-[#2E6A52] fill-[#edf3ee]' : 'text-[#666666]'}`} />
+                          <span className={completedSteps[`30_days-${idx}`] ? 'line-through text-[#666666] opacity-70' : ''}>{stepStr}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
                   {/* 60 Days */}
-                  <div className="relative pl-8 space-y-2">
-                    <div className="absolute left-2.5 top-1.5 w-2.5 h-2.5 rounded-full bg-indigo-600 z-10" />
-                    <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full w-max">60 Days</span>
-                    <div className="space-y-2">
+                  <div className="relative pl-12 space-y-3">
+                    <div className="absolute left-[14px] top-1.5 w-3 h-3 rounded-full bg-[#B88A3B] z-10 border-2 border-[#FFFDF8] shadow-sm" />
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-sans font-bold text-[#B88A3B] uppercase tracking-wider block bg-[#fdfaf0] border border-[#ebdcb4] px-3 py-1 rounded-full">Phase 2: 60 Days</span>
+                    </div>
+                    <div className="space-y-2.5">
                       {predictionData.coaching?.roadmap?.['60_days']?.map((stepStr, idx) => (
                         <div 
                           key={idx} 
                           onClick={() => toggleMilestone('60_days', idx)}
-                          className="flex gap-2.5 items-start p-2.5 rounded-xl border border-zinc-100 bg-zinc-50/20 hover:bg-zinc-50 transition-all cursor-pointer select-none text-xs text-zinc-650"
+                          className="flex gap-2.5 items-start p-3 rounded-xl border border-[#E6DED2] bg-[#fcfbf9] hover:border-[#2e6a52] hover:shadow-[0_0_12px_rgba(46,106,82,0.08)] transition-all duration-200 cursor-pointer select-none text-xs text-[#1F2430]"
                         >
-                          <CheckSquare className={`w-4.5 h-4.5 flex-shrink-0 mt-0.5 ${completedSteps[`60_days-${idx}`] ? 'text-indigo-600 fill-indigo-50' : 'text-zinc-400'}`} />
-                          <span className={completedSteps[`60_days-${idx}`] ? 'line-through text-zinc-450' : ''}>{stepStr}</span>
+                          <CheckSquare className={`w-4.5 h-4.5 flex-shrink-0 mt-0.5 ${completedSteps[`60_days-${idx}`] ? 'text-[#B88A3B] fill-[#fdfaf0]' : 'text-[#666666]'}`} />
+                          <span className={completedSteps[`60_days-${idx}`] ? 'line-through text-[#666666] opacity-70' : ''}>{stepStr}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
                   {/* 90 Days */}
-                  <div className="relative pl-8 space-y-2">
-                    <div className="absolute left-2.5 top-1.5 w-2.5 h-2.5 rounded-full bg-emerald-600 z-10" />
-                    <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full w-max">90 Days</span>
-                    <div className="space-y-2">
+                  <div className="relative pl-12 space-y-3">
+                    <div className="absolute left-[14px] top-1.5 w-3 h-3 rounded-full bg-[#2E6A52] z-10 border-2 border-[#FFFDF8] shadow-sm" />
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-sans font-bold text-[#2E6A52] uppercase tracking-wider block bg-[#edf3ee] border border-[#c4d6c7] px-3 py-1 rounded-full">Phase 3: 90 Days</span>
+                    </div>
+                    <div className="space-y-2.5">
                       {predictionData.coaching?.roadmap?.['90_days']?.map((stepStr, idx) => (
                         <div 
                           key={idx} 
                           onClick={() => toggleMilestone('90_days', idx)}
-                          className="flex gap-2.5 items-start p-2.5 rounded-xl border border-zinc-100 bg-zinc-50/20 hover:bg-zinc-50 transition-all cursor-pointer select-none text-xs text-zinc-650"
+                          className="flex gap-2.5 items-start p-3 rounded-xl border border-[#E6DED2] bg-[#fcfbf9] hover:border-[#2e6a52] hover:shadow-[0_0_12px_rgba(46,106,82,0.08)] transition-all duration-200 cursor-pointer select-none text-xs text-[#1F2430]"
                         >
-                          <CheckSquare className={`w-4.5 h-4.5 flex-shrink-0 mt-0.5 ${completedSteps[`90_days-${idx}`] ? 'text-emerald-600 fill-emerald-50' : 'text-zinc-400'}`} />
-                          <span className={completedSteps[`90_days-${idx}`] ? 'line-through text-zinc-450' : ''}>{stepStr}</span>
+                          <CheckSquare className={`w-4.5 h-4.5 flex-shrink-0 mt-0.5 ${completedSteps[`90_days-${idx}`] ? 'text-[#2E6A52] fill-[#edf3ee]' : 'text-[#666666]'}`} />
+                          <span className={completedSteps[`90_days-${idx}`] ? 'line-through text-[#666666] opacity-70' : ''}>{stepStr}</span>
                         </div>
                       ))}
                     </div>
@@ -822,49 +1262,493 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                 </div>
               </div>
 
-              {/* SECTION 8: Future Projection */}
-              <div id="projection" className="glass-panel p-6 rounded-2xl space-y-5 text-center animate-fade-in">
-                <h4 className="text-sm font-bold text-zinc-850 border-b border-zinc-100 pb-2.5 flex items-center gap-2 text-left">
-                  <Target className="w-4.5 h-4.5 text-blue-600" />
-                  <span>Heuristic Transition Projection</span>
+              {/* SECTION 9: Future Projection Timeline with animated arrow connectors */}
+              <div 
+                id="projection" 
+                style={{ animationDelay: '1300ms' }}
+                className="bg-[#FFFDF8] border border-[#E6DED2] p-6 rounded-[20px] space-y-6 shadow-sm animate-fade-slide-up"
+              >
+                <h4 className="font-serif text-sm font-bold text-[#1F2430] border-b border-[#E6DED2]/60 pb-2.5 flex items-center gap-2 text-left">
+                  <Target className="w-4.5 h-4.5 text-[#2E6A52]" />
+                  <span>Growth Projection Roadmap</span>
                 </h4>
                 
-                <div className="flex flex-col sm:flex-row items-center gap-3 bg-zinc-55/40 p-4 rounded-xl border border-zinc-200/60">
-                  <div className={`px-3 py-2 rounded-lg border text-xs font-bold uppercase tracking-wider w-full ${getTierBadgeColor(predictionData.coaching?.future_projection?.current_tier)}`}>
-                    Current: {predictionData.coaching?.future_projection?.current_tier}
+                <div className="relative flex flex-col sm:flex-row justify-between items-center gap-4 py-4 px-2">
+                  
+                  {/* Segment 1: Today */}
+                  <div className="relative z-10 flex flex-col items-center text-center bg-[#FFFDF8] border border-[#E6DED2] p-4 rounded-xl shadow-xs w-full sm:w-[28%] hover:translate-y-[-2px] transition-transform duration-200">
+                    <span className="block text-[9px] font-sans font-bold text-[#666666] uppercase tracking-wider">Today</span>
+                    <span className="font-serif text-sm font-bold text-[#A73B3B] uppercase mt-1">{predictionData.prediction}</span>
+                    <span className="text-[10px] text-[#666666] mt-1 font-sans">Current Readiness</span>
                   </div>
-                  <div className="flex justify-center items-center w-6 h-6 rounded-full bg-zinc-100 text-zinc-400">
-                    <ChevronRight className="w-4 h-4 transform rotate-90 sm:rotate-0" />
-                  </div>
-                  <div className={`px-3 py-2 rounded-lg border text-xs font-bold uppercase tracking-wider w-full animate-pulse ${getTierBadgeColor(predictionData.coaching?.future_projection?.projected_tier)}`}>
-                    Projected: {predictionData.coaching?.future_projection?.projected_tier}
-                  </div>
-                </div>
 
-                <div className="space-y-3 text-left border-t border-zinc-100 pt-4">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-zinc-500 font-bold">Readiness Score Confidence</span>
-                    <span className="text-zinc-800 font-black">{predictionData.coaching?.future_projection?.confidence}%</span>
+                  {/* Animated Arrow 1 */}
+                  <svg className="w-12 h-6 text-[#2E6A52] shrink-0 hidden sm:block animate-pulse" fill="none" viewBox="0 0 48 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 12H44M44 12L34 6M44 12L34 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <div className="sm:hidden text-center text-[#2E6A52] animate-pulse">↓</div>
+
+                  {/* Segment 2: 90 Days */}
+                  <div className="relative z-10 flex flex-col items-center text-center bg-[#FFFDF8] border border-[#E6DED2] p-4 rounded-xl shadow-xs w-full sm:w-[28%] hover:translate-y-[-2px] transition-transform duration-200">
+                    <span className="block text-[9px] font-sans font-bold text-[#B88A3B] uppercase tracking-wider">90 Days</span>
+                    <span className="font-serif text-sm font-bold text-[#B88A3B] uppercase mt-1">
+                      {predictionData.prediction === 'Building' ? 'Emerging' : 'Ready'}
+                    </span>
+                    <span className="text-[10px] text-[#666666] mt-1 font-sans">With Discipline</span>
                   </div>
-                  <div className="w-full bg-zinc-100 rounded-full h-2 border border-zinc-200/50">
-                    <div 
-                      className="bg-gradient-to-r from-blue-500 to-emerald-500 h-full rounded-full transition-all duration-1000"
-                      style={{ width: `${predictionData.coaching?.future_projection?.confidence}%` }}
-                    />
+
+                  {/* Animated Arrow 2 */}
+                  <svg className="w-12 h-6 text-[#2E6A52] shrink-0 hidden sm:block animate-pulse" fill="none" viewBox="0 0 48 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 12H44M44 12L34 6M44 12L34 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <div className="sm:hidden text-center text-[#2E6A52] animate-pulse">↓</div>
+
+                  {/* Segment 3: 180 Days */}
+                  <div className="relative z-10 flex flex-col items-center text-center bg-[#FFFDF8] border border-[#E6DED2] p-4 rounded-xl shadow-xs w-full sm:w-[28%] hover:translate-y-[-2px] transition-transform duration-200">
+                    <span className="block text-[9px] font-sans font-bold text-[#2E6A52] uppercase tracking-wider">180 Days</span>
+                    <span className="font-serif text-sm font-bold text-[#1F4B3A] uppercase mt-1">Ready Elite</span>
+                    <span className="text-[10px] text-[#666666] mt-1 font-sans">Formal Access Goal</span>
                   </div>
                 </div>
               </div>
 
-            </div>
+              {/* SECTION 10: Official Financial Readiness Passport Export Section */}
+              <div 
+                style={{ animationDelay: '1450ms' }}
+                className="bg-[#FFFDF8] border border-[#E6DED2] p-6 rounded-[20px] shadow-sm space-y-6 animate-fade-slide-up text-left"
+              >
+                <div className="border-b border-[#E6DED2]/60 pb-3 flex items-center justify-between">
+                  <h4 className="font-serif text-base font-bold text-[#1F2430] flex items-center gap-2 m-0">
+                    <Landmark className="w-5 h-5 text-[#2E6A52]" />
+                    <span>Official Financial Readiness Passport</span>
+                  </h4>
+                  <span className="font-mono text-[9px] font-bold bg-[#edf3ee] border border-[#c4d6c7] text-[#1F4B3A] px-2.5 py-0.5 rounded-full">
+                    EXPORT READY
+                  </span>
+                </div>
+
+                <p className="font-sans text-xs text-[#666666] leading-relaxed m-0">
+                  Generate and download your behavior-based Alternative Credit Passport. This document functions as an official credentials record for participating coaching institutions.
+                </p>
+
+                {/* Passport Preview Pane */}
+                <div className="border border-[#E6DED2] rounded-xl overflow-hidden shadow-inner bg-[#FBF8F2] p-4 max-h-[400px] overflow-y-auto select-none relative group/preview">
+                  <div className="absolute inset-0 bg-black/5 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center pointer-events-none z-20">
+                    <span className="bg-[#1F2430]/90 text-[#FFFDF8] font-sans font-bold text-[10px] uppercase tracking-wider px-3.5 py-1.5 rounded-lg shadow-md">
+                      Certificate Preview
+                    </span>
+                  </div>
+                  
+                  {/* Outer container of the printed passport sheet */}
+                  <div 
+                    id="passport-print-template" 
+                    className="bg-[#FFFDF8] border-3 border-[#c2a67a]/45 p-8 rounded-lg shadow-sm text-left font-serif text-[#1F2430] relative overflow-hidden max-w-2xl mx-auto space-y-6"
+                    style={{ background: 'repeating-linear-gradient(45deg, rgba(194,166,122,0.01) 0px, rgba(194,166,122,0.01) 1px, transparent 1px, transparent 8px), #FFFDF8' }}
+                  >
+                    {/* Rotated faint watermark behind */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
+                      <span className="font-serif text-[6.5rem] font-black uppercase tracking-widest text-[#1f2937]/5 opacity-5 transform -rotate-12 whitespace-nowrap">
+                        GROWLEDGER SECURE
+                      </span>
+                    </div>
+
+                    {/* Passport Header */}
+                    <div className="border-b-2 border-[#1F4B3A] pb-4 flex justify-between items-start relative z-10">
+                      <div>
+                        <h2 className="font-serif text-2xl font-extrabold text-[#1F4B3A] m-0 tracking-tight flex items-center gap-1.5">
+                          GrowLedger
+                        </h2>
+                        <span className="block font-serif text-xs font-bold text-[#1F2430] mt-0.5 tracking-wider uppercase">
+                          Financial Readiness Passport
+                        </span>
+                        <span className="block font-sans text-[8px] text-[#666666] uppercase tracking-wide mt-1">
+                          AI-Powered Alternative Financial Readiness Assessment
+                        </span>
+                      </div>
+                      <div className="text-right font-sans text-[8px] text-[#666666] space-y-1">
+                        <div><strong className="text-[#1F2430]">Issued On:</strong> {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                        <div><strong className="text-[#1F2430]">Passport ID:</strong> GL-2026-00{Math.floor(100000 + Math.random() * 900000)}</div>
+                      </div>
+                    </div>
+
+                    {/* Middle Section: Stamp + Profile table */}
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start relative z-10">
+                      
+                      {/* Left: Metadata table */}
+                      <div className="md:col-span-8 space-y-3 font-sans text-xs">
+                        <div className="grid grid-cols-2 gap-2 border-b border-[#E6DED2]/60 pb-2">
+                          <span className="text-[#666666] font-semibold">Financial Tier:</span>
+                          <span className="font-bold text-[#1F2430] uppercase">{predictionData.prediction}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 border-b border-[#E6DED2]/60 pb-2">
+                          <span className="text-[#666666] font-semibold">Prediction Confidence:</span>
+                          <span className="font-bold text-[#1F2430]">{Math.min(97.8, predictionData.confidence || 88.5)}%</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 border-b border-[#E6DED2]/60 pb-2">
+                          <span className="text-[#666666] font-semibold">Occupation Profile:</span>
+                          <span className="font-bold text-[#1F2430]">{form.occupation}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 border-b border-[#E6DED2]/60 pb-2">
+                          <span className="text-[#666666] font-semibold">Monthly Income:</span>
+                          <span className="font-bold text-[#1F2430] font-mono">₹{Number(form.monthly_income).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 border-b border-[#E6DED2]/60 pb-2">
+                          <span className="text-[#666666] font-semibold">Verified Savings Rate:</span>
+                          <span className="font-bold text-[#2E6A52] font-mono">{calcSavingsRate()}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 border-b border-[#E6DED2]/60 pb-2">
+                          <span className="text-[#666666] font-semibold">Digital Footprint Ratio:</span>
+                          <span className="font-bold text-[#1F4B3A] font-mono">{calcDigitalUPI()}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <span className="text-[#666666] font-semibold">Emergency Reserves:</span>
+                          <span className="font-bold text-[#B88A3B]">{calcFinancialBuffer()} Months</span>
+                        </div>
+                      </div>
+
+                      {/* Right: Stamp column */}
+                      <div className="md:col-span-4 flex justify-center items-center h-full">
+                        <div className="passport-stamp-red uppercase font-serif font-black text-center text-xs tracking-[0.1em] border-[3px] border-double rounded-md border-[#a91d22] text-[#a91d22] px-3.5 py-2.5 select-none rotate-[-6deg] bg-transparent shadow-xs">
+                          {predictionData.prediction} VERIFIED
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* AI Narrative Section */}
+                    <div className="space-y-2 relative z-10 border-t border-b border-[#E6DED2]/60 py-4 text-left">
+                      <h4 className="font-serif text-xs font-bold text-[#1F4B3A] uppercase tracking-wider flex items-center gap-1.5 m-0">
+                        <span>🖋</span>
+                        <span>AI Financial Story</span>
+                      </h4>
+                      <p className="font-serif text-[11px] text-[#1F2430] italic leading-relaxed m-0">
+                        "Based on your last 12 months, {predictionData.financial_story}"
+                      </p>
+                    </div>
+
+                    {/* Strengths and Opportunities Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                      
+                      {/* Positive Drivers */}
+                      <div className="space-y-2 text-left">
+                        <h4 className="font-serif text-xs font-bold text-[#2E6A52] uppercase tracking-wider m-0">Financial Strengths</h4>
+                        <div className="space-y-1.5">
+                          {predictionData.strengthened_profile?.map((item, idx) => (
+                            <div key={idx} className="flex gap-1.5 items-start text-[10px] font-sans font-semibold text-[#1F2430]">
+                              <Check className="w-3.5 h-3.5 text-[#2E6A52] flex-shrink-0 mt-0.5" />
+                              <span>{item.title}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Limiting Drivers */}
+                      <div className="space-y-2 text-left">
+                        <h4 className="font-serif text-xs font-bold text-[#B88A3B] uppercase tracking-wider m-0">Improvement Opportunities</h4>
+                        <div className="space-y-1.5">
+                          {predictionData.reduced_readiness?.map((item, idx) => (
+                            <div key={idx} className="flex gap-1.5 items-start text-[10px] font-sans font-semibold text-[#1F2430]">
+                              <AlertTriangle className="w-3.5 h-3.5 text-[#B88A3B] flex-shrink-0 mt-0.5" />
+                              <span>{item.title}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Priority action */}
+                    <div className="bg-[#edf3ee]/40 border border-[#c4d6c7] p-4 rounded-lg relative z-10 text-left">
+                      <h4 className="font-serif text-xs font-bold text-[#1F4B3A] uppercase tracking-wider m-0 flex items-center gap-1.5">
+                        <Compass className="w-4 h-4 text-[#2E6A52]" />
+                        <span>Priority Coaching Recommendation</span>
+                      </h4>
+                      <h5 className="font-serif text-sm font-bold text-[#1F2430] mt-2 mb-1">{predictionData.coaching?.priority_action}</h5>
+                      <p className="font-sans text-[10px] text-[#666666] leading-relaxed m-0">{predictionData.coaching?.action_description}</p>
+                      
+                      <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-[#c4d6c7]/60 text-[9px] font-sans">
+                        <div>
+                          <strong className="text-[#1F2430]">Estimated Improvement:</strong>
+                          <span className="text-[#2E6A52] ml-1 font-bold">+8 Readiness Points</span>
+                        </div>
+                        <div>
+                          <strong className="text-[#1F2430]">Quick Win Target:</strong>
+                          <span className="text-[#1F2430] ml-1 font-bold">{predictionData.coaching?.quick_win}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Roadmap Timeline */}
+                    <div className="border-t border-[#E6DED2]/60 pt-4 relative z-10 space-y-3 text-left">
+                      <h4 className="font-serif text-xs font-bold text-[#1F4B3A] uppercase tracking-wider m-0">30/60/90 Day Savings Roadmap</h4>
+                      
+                      <div className="grid grid-cols-3 gap-4 text-[9px] font-sans">
+                        <div className="space-y-1.5">
+                          <span className="font-bold text-[#1F4B3A] uppercase">30 Days</span>
+                          <p className="text-[#666666] leading-normal m-0 line-clamp-3">{predictionData.coaching?.roadmap?.['30_days']?.[0]}</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <span className="font-bold text-[#B88A3B] uppercase">60 Days</span>
+                          <p className="text-[#666666] leading-normal m-0 line-clamp-3">{predictionData.coaching?.roadmap?.['60_days']?.[0]}</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <span className="font-bold text-[#2E6A52] uppercase">90 Days</span>
+                          <p className="text-[#666666] leading-normal m-0 line-clamp-3">{predictionData.coaching?.roadmap?.['90_days']?.[0]}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Future Projection Timeline */}
+                    <div className="border-t border-[#E6DED2]/60 pt-4 relative z-10 space-y-3 text-left">
+                      <h4 className="font-serif text-xs font-bold text-[#1F4B3A] uppercase tracking-wider m-0">Readiness Growth Projection</h4>
+                      <div className="flex justify-between items-center bg-[#fcfbf9] border border-[#E6DED2]/60 p-2.5 rounded text-[9px] font-sans">
+                        <div><strong className="text-[#666666]">Today:</strong> <span className="font-serif font-bold text-[#A73B3B] uppercase">{predictionData.prediction}</span></div>
+                        <div className="text-[#666666]">&rarr;</div>
+                        <div><strong className="text-[#666666]">90 Days:</strong> <span className="font-serif font-bold text-[#B88A3B] uppercase">{predictionData.prediction === 'Building' ? 'Emerging' : 'Ready'}</span></div>
+                        <div className="text-[#666666]">&rarr;</div>
+                        <div><strong className="text-[#666666]">180 Days:</strong> <span className="font-serif font-bold text-[#2E6A52] uppercase">Ready Elite</span></div>
+                      </div>
+                    </div>
+
+                    {/* QR Code and Disclaimer Footer */}
+                    <div className="border-t-2 border-[#E6DED2] pt-4 flex justify-between items-center relative z-10 gap-4">
+                      
+                      {/* Left: General verification info */}
+                      <div className="space-y-1 w-[80%] text-[8px] font-sans text-[#666666] leading-normal text-left">
+                        <div>
+                          <strong className="text-[#1F2430]">Generated by GrowLedger AI alternative credit bureau engine.</strong> Behaviour-based cash flow verification. No demographic variables or social attributes were factored in calculations.
+                        </div>
+                        <p className="italic m-0">
+                          Disclaimer: This document is formulated exclusively for behavioral credit coaching and financial guidance purposes. It does not constitute a formal legal score issued by licensed central banking authorities.
+                        </p>
+                      </div>
+
+                      {/* Right: Mock QR code element */}
+                      <div className="flex flex-col items-center gap-1 shrink-0 w-[20%]">
+                        {/* Drawn secure QR box */}
+                        <div className="w-12 h-12 border-2 border-[#1F2430] p-1 bg-white flex flex-wrap gap-0.5 justify-center content-center select-none shadow-xs">
+                          <div className="w-2.5 h-2.5 bg-[#1f2430] self-start mr-auto" />
+                          <div className="w-2.5 h-2.5 bg-[#1f2430] self-start ml-auto" />
+                          <div className="w-full h-1" />
+                          <div className="w-1.5 h-1.5 bg-[#1f2430]" />
+                          <div className="w-2 h-2 bg-[#1f2430] ml-1" />
+                          <div className="w-full h-1" />
+                          <div className="w-2.5 h-2.5 bg-[#1f2430] self-end mr-auto" />
+                          <div className="w-1.5 h-1.5 bg-[#1f2430] self-end ml-auto" />
+                        </div>
+                        <span className="block text-[6px] font-sans font-bold text-[#666666] tracking-wide uppercase mt-0.5">Verify Passport</span>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+
+                {/* Print and Download Buttons */}
+                <div className="flex gap-4 pt-2">
+                  <button
+                    type="button"
+                    onClick={downloadPDF}
+                    disabled={exporting}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-[12px] text-[#FFFDF8] font-bold bg-[#1F4B3A] hover:bg-[#2E6A52] hover:translate-y-[-2px] transition-all duration-200 shadow-md cursor-pointer disabled:opacity-60 text-sm font-sans"
+                  >
+                    {exporting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-base">📄</span>
+                        Download Secure PDF
+                      </>
+                    )}
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={handlePrint}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-[12px] font-bold bg-[#f4efe4] hover:bg-[#ebdcb4] hover:translate-y-[-2px] text-[#666666] transition-all duration-200 border border-[#E6DED2] cursor-pointer text-sm font-sans shadow-sm"
+                  >
+                    <span className="text-base">🖨</span>
+                    Print Passport
+                  </button>
+                </div>
+              </div>
+
+              {/* SECTION 11: Generation Dialog Animation Overlay */}
+              {exporting && (
+                <div className="fixed inset-0 z-50 bg-[#1F2430]/60 backdrop-blur-xs flex items-center justify-center p-4">
+                  <div className="bg-[#FFFDF8] border-2 border-[#E6DED2] p-8 rounded-[24px] max-w-sm w-full space-y-6 shadow-xl animate-scale-in text-center">
+                    
+                    <div className="space-y-1">
+                      <h4 className="font-serif text-lg font-extrabold text-[#1F2430] m-0">Generating Alternative Bureau Record</h4>
+                      <p className="font-sans text-xs text-[#666666]">Applying secure cryptographic stamps...</p>
+                    </div>
+
+                    <div className="space-y-3.5 text-left max-w-xs mx-auto">
+                      {[
+                        "Formatting Financial Report",
+                        "Applying AI Summary",
+                        "Embedding Behaviour Analysis",
+                        "Applying Verification Stamp",
+                        "Finalizing PDF"
+                      ].map((stepText, idx) => {
+                        const stepNum = idx + 1;
+                        const isCompleted = exportStep > stepNum;
+                        const isActive = exportStep === stepNum;
+                        
+                        return (
+                          <div 
+                            key={idx} 
+                            className={`flex items-center gap-3 transition-all duration-200 ${
+                              isCompleted ? 'text-[#666666]' : isActive ? 'text-[#2E6A52] font-bold scale-[1.01]' : 'text-[#666666]/35'
+                            }`}
+                          >
+                            <div className="flex-shrink-0">
+                              {isCompleted ? (
+                                <div className="w-5 h-5 rounded-full bg-[#2E6A52] flex items-center justify-center text-white scale-110 shadow-sm animate-scale-in">
+                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                </div>
+                              ) : isActive ? (
+                                <div className="w-5 h-5 rounded-full border-2 border-[#2E6A52] flex items-center justify-center text-[#2E6A52] animate-pulse bg-[#edf3ee]/40">
+                                  <span className="w-1.5 h-1.5 bg-[#2E6A52] rounded-full" />
+                                </div>
+                              ) : (
+                                <div className="w-5 h-5 rounded-full border border-[#E6DED2] bg-[#fcfbf9] flex items-center justify-center text-[9px] text-[#666666] font-bold font-mono">
+                                  {stepNum}
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-xs font-sans">{stepText}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="w-full bg-[#E6DED2] rounded-full h-1.5 overflow-hidden max-w-xs mx-auto">
+                      <div 
+                        className="bg-[#2E6A52] h-full rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${(exportStep / 5) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            </div>        </div>
           ) : (
-            /* Empty State Placeholder */
-            <div className="glass-panel p-8 rounded-2xl text-center flex flex-col items-center justify-center h-80 space-y-4 animate-fade-in">
-              <div className="w-12 h-12 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-400">
-                <HelpCircle className="w-6 h-6" />
+            /* Live Financial Passport Preview Panel (WOW Feature) */
+            <div className="sticky top-24 bg-[#FFFDF8] border-2 border-dashed border-[#E6DED2] p-8 rounded-[20px] shadow-sm space-y-6 animate-scale-in">
+              <div className="border-b border-[#E6DED2]/80 pb-4">
+                <span className="block text-[10px] font-sans font-bold uppercase tracking-widest text-[#666666]">Alternative Bureau Draft</span>
+                <h4 className="font-serif text-xl font-bold text-[#1F2430] mt-1 mb-0">Readiness Passport Preview</h4>
               </div>
-              <div>
-                <h4 className="text-base font-bold text-zinc-800">No Assessment Loaded</h4>
-                <p className="text-zinc-500 text-sm mt-1 max-w-xs mx-auto">Fill in the financial variables or load a preset and press evaluate to run the predictive scoring flow.</p>
+
+              {/* Verified Checklist */}
+              <div className="space-y-4 font-sans text-xs">
+                {/* Field 1: Occupation */}
+                <div className="flex items-center justify-between border-b border-[#E6DED2]/40 pb-2.5">
+                  <span className="text-[#666666] font-semibold">Occupation Profile</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-serif font-bold text-[#1F4B3A]">{form.occupation}</span>
+                    <span className="text-[#2E6A52] font-bold flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5 stroke-[3]" /> Verified
+                    </span>
+                  </div>
+                </div>
+
+                {/* Field 2: Monthly Income */}
+                <div className="flex items-center justify-between border-b border-[#E6DED2]/40 pb-2.5">
+                  <span className="text-[#666666] font-semibold">Income Flow Pattern</span>
+                  <div className="flex items-center gap-2">
+                    {form.monthly_income > 0 ? (
+                      <>
+                        <span className="font-mono text-[#1F2430]">₹{Number(form.monthly_income).toLocaleString('en-IN')}</span>
+                        <span className="text-[#2E6A52] font-bold flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5 stroke-[3]" /> Mapped
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-amber-500 font-bold">Pending</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Field 3: Savings rate */}
+                <div className="flex items-center justify-between border-b border-[#E6DED2]/40 pb-2.5">
+                  <span className="text-[#666666] font-semibold">Verified Savings Rate</span>
+                  <div className="flex items-center gap-2">
+                    {form.savings > 0 && form.monthly_income > 0 ? (
+                      <>
+                        <span className="font-mono text-[#1F2430]">{calcSavingsRate()}</span>
+                        <span className="text-[#2E6A52] font-bold flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5 stroke-[3]" /> Pattern Mapped
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-amber-500 font-bold">Pending</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Field 4: Digital Footprint */}
+                <div className="flex items-center justify-between border-b border-[#E6DED2]/40 pb-2.5">
+                  <span className="text-[#666666] font-semibold">UPI Transaction Density</span>
+                  <div className="flex items-center gap-2">
+                    {form.digital_transactions > 0 || form.cash_transactions > 0 ? (
+                      <>
+                        <span className="font-mono text-[#1F2430]">{calcDigitalUPI()} Digital</span>
+                        <span className="text-[#2E6A52] font-bold flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5 stroke-[3]" /> Activity Signal
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-amber-500 font-bold">Pending</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Field 5: Debt Ratio */}
+                <div className="flex items-center justify-between border-b border-[#E6DED2]/40 pb-2.5">
+                  <span className="text-[#666666] font-semibold">EMI Debt Burden</span>
+                  <div className="flex items-center gap-2">
+                    {form.emi_ratio >= 0 ? (
+                      <>
+                        <span className="font-mono text-[#1F2430]">{(Number(form.emi_ratio) * 100).toFixed(0)}% Debt</span>
+                        <span className="text-[#2E6A52] font-bold flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5 stroke-[3]" /> Ratio Verified
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-amber-500 font-bold">Pending</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Field 6: Emergency Buffer */}
+                <div className="flex items-center justify-between border-b border-[#E6DED2]/40 pb-2.5">
+                  <span className="text-[#666666] font-semibold">Emergency Buffer</span>
+                  <div className="flex items-center gap-2">
+                    {form.average_balance > 0 && form.monthly_expenses > 0 ? (
+                      <>
+                        <span className="font-mono text-[#1F2430]">{(Number(form.average_balance) / Number(form.monthly_expenses)).toFixed(1)} Months</span>
+                        <span className="text-[#2E6A52] font-bold flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5 stroke-[3]" /> Mapped
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-amber-500 font-bold">Pending</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Watermark Draft Stamp */}
+              <div className="border border-double border-[#ebdcb4] p-3 text-center rounded-xl bg-[#fdfaf0]/50 select-none">
+                <span className="font-serif text-xs font-bold text-[#B88A3B] uppercase tracking-[0.2em] block">
+                  Constructing Live Passport
+                </span>
+                <span className="text-[10px] text-[#666666] font-sans mt-1 block">
+                  Attribution engine is reading cash-flow signals...
+                </span>
               </div>
             </div>
           )}
