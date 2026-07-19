@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { predictCreditReadiness } from '../services/api';
+import html2pdf from 'html2pdf.js';
 import demoProfiles from '../data/demo_profiles.json';
 import { 
   ArrowRight, Play, RefreshCw, AlertCircle, HelpCircle, ShieldCheck, 
@@ -99,6 +100,65 @@ export default function Dashboard({ predictionData, setPredictionData }) {
     return colors[tier] || colors.Building;
   };
 
+  const prepareSanitizedStyles = () => {
+    const backups = [];
+    
+    // Combine standard styleSheets and constructable adoptedStyleSheets
+    const sheets = [
+      ...Array.from(document.styleSheets),
+      ...(document.adoptedStyleSheets || [])
+    ];
+    
+    for (let sheetIdx = 0; sheetIdx < sheets.length; sheetIdx++) {
+      const sheet = sheets[sheetIdx];
+      try {
+        const rules = sheet.cssRules || sheet.rules;
+        if (!rules) continue;
+        
+        const sheetBackups = [];
+        
+        // Loop backwards to allow deletion without index shifts
+        for (let ruleIdx = rules.length - 1; ruleIdx >= 0; ruleIdx--) {
+          const rule = rules[ruleIdx];
+          if (!rule || !rule.cssText) continue;
+          
+          const cssText = rule.cssText;
+          if (cssText.includes('oklch') || cssText.includes('oklab')) {
+            // Backup the original rule index and text
+            sheetBackups.push({ index: ruleIdx, originalText: cssText });
+            try {
+              sheet.deleteRule(ruleIdx);
+            } catch (err) {
+              console.warn("Could not delete rule:", cssText, err);
+            }
+          }
+        }
+        
+        if (sheetBackups.length > 0) {
+          backups.push({ sheet, sheetBackups });
+        }
+      } catch (e) {
+        console.warn("Security error accessing stylesheet rules:", e);
+      }
+    }
+    
+    // Return cleanup function
+    return () => {
+      // Re-insert rules from smallest index to largest index to maintain original structure
+      for (const item of backups) {
+        const { sheet, sheetBackups } = item;
+        const sortedBackups = [...sheetBackups].sort((a, b) => a.index - b.index);
+        for (const backup of sortedBackups) {
+          try {
+            sheet.insertRule(backup.originalText, backup.index);
+          } catch (err) {
+            console.warn("Could not restore stylesheet rule:", backup.originalText, err);
+          }
+        }
+      }
+    };
+  };
+
   const downloadPDF = () => {
     setExporting(true);
     setExportStep(1);
@@ -111,33 +171,47 @@ export default function Dashboard({ predictionData, setPredictionData }) {
       } else {
         clearInterval(interval);
         
-        const element = document.getElementById('passport-print-template');
-        const opt = {
-          margin:       0.4,
-          filename:     `GL-Readiness-Passport-${form.occupation.replace(/\s+/g, '-')}.pdf`,
-          image:        { type: 'jpeg', quality: 0.98 },
-          html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
-          jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-        };
-        
-        if (window.html2pdf) {
-          window.html2pdf().from(element).set(opt).save().then(() => {
-            setExporting(false);
-            toast.success("Passport PDF downloaded successfully!");
-          });
-        } else {
-          const script = document.createElement('script');
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-          script.onload = () => {
-            window.html2pdf().from(element).set(opt).save().then(() => {
-              setExporting(false);
-              toast.success("Passport PDF downloaded successfully!");
-            });
+        try {
+          const element = document.getElementById('passport-print-template');
+          if (!element) throw new Error("Passport template not found.");
+          
+          // 1. Temporarily sanitize stylesheet rules in memory to prevent html2canvas parsing crash
+          const restoreStyles = prepareSanitizedStyles();
+          
+          const opt = {
+            margin:       0.2,
+            filename:     `GL-Readiness-Passport-${form.occupation.replace(/\s+/g, '-')}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true, logging: false },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
+            pagebreak:    { mode: ['avoid-all'], avoid: ['#passport-print-template div'] }
           };
-          document.body.appendChild(script);
+          
+          const html2pdfLib = typeof html2pdf === 'function' ? html2pdf : (html2pdf.default || window.html2pdf);
+          if (!html2pdfLib) {
+            throw new Error("html2pdf library could not be resolved.");
+          }
+          
+          html2pdfLib().from(element).set(opt).save()
+            .then(() => {
+              setExporting(false);
+              restoreStyles(); // Restore global styles
+              toast.success("Passport PDF downloaded successfully!");
+            })
+            .catch((err) => {
+              console.error("PDF generation promise rejection error:", err);
+              setExporting(false);
+              restoreStyles();
+              toast.error(`PDF Generation Error: ${err.message || err}`);
+            });
+            
+        } catch (err) {
+          console.error("PDF runtime exception caught:", err);
+          setExporting(false);
+          toast.error(`PDF Runtime Error: ${err.message || err}`);
         }
       }
-    }, 400);
+    }, 250);
   };
 
   const handlePrint = () => {
@@ -870,7 +944,8 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                   style={{ width: `${Math.min(100, (processingStep - 1) * (100 / 6))}%` }}
                 />
               </div>
-                   ) : predictionData ? (
+            </div>
+          ) : predictionData ? (
             /* CONSOLIDATED RESULTS DASHBOARD */
             <div className="space-y-6 max-h-[85vh] overflow-y-auto pr-3 scroll-smooth animate-fade-slide-up">
               
@@ -1339,21 +1414,20 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                     </span>
                   </div>
                   
-                  {/* Outer container of the printed passport sheet */}
                   <div 
                     id="passport-print-template" 
-                    className="bg-[#FFFDF8] border-3 border-[#c2a67a]/45 p-8 rounded-lg shadow-sm text-left font-serif text-[#1F2430] relative overflow-hidden max-w-2xl mx-auto space-y-6"
-                    style={{ background: 'repeating-linear-gradient(45deg, rgba(194,166,122,0.01) 0px, rgba(194,166,122,0.01) 1px, transparent 1px, transparent 8px), #FFFDF8' }}
+                    className="bg-[#FFFDF8] border-3 border-[#c2a67a]/45 px-8 py-8 rounded-lg shadow-sm text-left font-serif text-[#1F2430] relative overflow-hidden max-w-2xl mx-auto space-y-5"
+                    style={{ backgroundColor: '#FFFDF8' }}
                   >
                     {/* Rotated faint watermark behind */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
-                      <span className="font-serif text-[6.5rem] font-black uppercase tracking-widest text-[#1f2937]/5 opacity-5 transform -rotate-12 whitespace-nowrap">
+                      <span className="font-serif text-[4rem] font-black uppercase tracking-widest text-[#1f2937]/[0.007] transform -rotate-12 whitespace-nowrap">
                         GROWLEDGER SECURE
                       </span>
                     </div>
 
                     {/* Passport Header */}
-                    <div className="border-b-2 border-[#1F4B3A] pb-4 flex justify-between items-start relative z-10">
+                    <div className="border-b-2 border-[#1F4B3A] pb-3 flex justify-between items-start relative z-10">
                       <div>
                         <h2 className="font-serif text-2xl font-extrabold text-[#1F4B3A] m-0 tracking-tight flex items-center gap-1.5">
                           GrowLedger
@@ -1365,62 +1439,62 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                           AI-Powered Alternative Financial Readiness Assessment
                         </span>
                       </div>
-                      <div className="text-right font-sans text-[8px] text-[#666666] space-y-1">
+                      <div className="text-right font-sans text-[8.5px] text-[#666666] space-y-1">
                         <div><strong className="text-[#1F2430]">Issued On:</strong> {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
                         <div><strong className="text-[#1F2430]">Passport ID:</strong> GL-2026-00{Math.floor(100000 + Math.random() * 900000)}</div>
                       </div>
                     </div>
 
                     {/* Middle Section: Stamp + Profile table */}
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start relative z-10">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center relative z-10">
                       
-                      {/* Left: Metadata table */}
-                      <div className="md:col-span-8 space-y-3 font-sans text-xs">
-                        <div className="grid grid-cols-2 gap-2 border-b border-[#E6DED2]/60 pb-2">
-                          <span className="text-[#666666] font-semibold">Financial Tier:</span>
-                          <span className="font-bold text-[#1F2430] uppercase">{predictionData.prediction}</span>
+                      {/* Left: Metadata table (Surgically aligned to a 12-column grid) */}
+                      <div className="md:col-span-8 space-y-2 font-sans text-xs">
+                        <div className="grid grid-cols-12 gap-2 border-b border-[#E6DED2]/60 pb-1.5">
+                          <span className="col-span-7 text-[#666666] font-semibold">Financial Tier</span>
+                          <span className="col-span-5 font-bold text-[#1F2430] uppercase text-right">{predictionData.prediction}</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 border-b border-[#E6DED2]/60 pb-2">
-                          <span className="text-[#666666] font-semibold">Prediction Confidence:</span>
-                          <span className="font-bold text-[#1F2430]">{Math.min(97.8, predictionData.confidence || 88.5)}%</span>
+                        <div className="grid grid-cols-12 gap-2 border-b border-[#E6DED2]/60 pb-1.5">
+                          <span className="col-span-7 text-[#666666] font-semibold">Prediction Confidence</span>
+                          <span className="col-span-5 font-bold text-[#1F2430] text-right">{Math.min(97.8, predictionData.confidence || 88.5)}%</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 border-b border-[#E6DED2]/60 pb-2">
-                          <span className="text-[#666666] font-semibold">Occupation Profile:</span>
-                          <span className="font-bold text-[#1F2430]">{form.occupation}</span>
+                        <div className="grid grid-cols-12 gap-2 border-b border-[#E6DED2]/60 pb-1.5">
+                          <span className="col-span-7 text-[#666666] font-semibold">Occupation Profile</span>
+                          <span className="col-span-5 font-bold text-[#1F2430] text-right">{form.occupation}</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 border-b border-[#E6DED2]/60 pb-2">
-                          <span className="text-[#666666] font-semibold">Monthly Income:</span>
-                          <span className="font-bold text-[#1F2430] font-mono">₹{Number(form.monthly_income).toLocaleString('en-IN')}</span>
+                        <div className="grid grid-cols-12 gap-2 border-b border-[#E6DED2]/60 pb-1.5">
+                          <span className="col-span-7 text-[#666666] font-semibold">Monthly Income</span>
+                          <span className="col-span-5 font-bold text-[#1F2430] font-mono text-right">₹{Number(form.monthly_income).toLocaleString('en-IN')}</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 border-b border-[#E6DED2]/60 pb-2">
-                          <span className="text-[#666666] font-semibold">Verified Savings Rate:</span>
-                          <span className="font-bold text-[#2E6A52] font-mono">{calcSavingsRate()}</span>
+                        <div className="grid grid-cols-12 gap-2 border-b border-[#E6DED2]/60 pb-1.5">
+                          <span className="col-span-7 text-[#666666] font-semibold">Verified Savings Rate</span>
+                          <span className="col-span-5 font-bold text-[#2E6A52] font-mono text-right">{calcSavingsRate()}</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 border-b border-[#E6DED2]/60 pb-2">
-                          <span className="text-[#666666] font-semibold">Digital Footprint Ratio:</span>
-                          <span className="font-bold text-[#1F4B3A] font-mono">{calcDigitalUPI()}</span>
+                        <div className="grid grid-cols-12 gap-2 border-b border-[#E6DED2]/60 pb-1.5">
+                          <span className="col-span-7 text-[#666666] font-semibold">Digital Footprint Ratio</span>
+                          <span className="col-span-5 font-bold text-[#1F4B3A] font-mono text-right">{calcDigitalUPI()}</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <span className="text-[#666666] font-semibold">Emergency Reserves:</span>
-                          <span className="font-bold text-[#B88A3B]">{calcFinancialBuffer()} Months</span>
+                        <div className="grid grid-cols-12 gap-2">
+                          <span className="col-span-7 text-[#666666] font-semibold">Emergency Reserves</span>
+                          <span className="col-span-5 font-bold text-[#B88A3B] text-right">{calcFinancialBuffer()} Months</span>
                         </div>
                       </div>
 
-                      {/* Right: Stamp column */}
+                      {/* Right: Enlarged & Slightly Straightened Stamp column */}
                       <div className="md:col-span-4 flex justify-center items-center h-full">
-                        <div className="passport-stamp-red uppercase font-serif font-black text-center text-xs tracking-[0.1em] border-[3px] border-double rounded-md border-[#a91d22] text-[#a91d22] px-3.5 py-2.5 select-none rotate-[-6deg] bg-transparent shadow-xs">
+                        <div className="passport-stamp-red uppercase font-serif font-black text-center text-xs tracking-[0.1em] border-[3px] border-double rounded-lg border-[#a91d22] text-[#a91d22] px-5 py-3.5 select-none rotate-[-3deg] bg-transparent shadow-xs">
                           {predictionData.prediction} VERIFIED
                         </div>
                       </div>
                     </div>
 
                     {/* AI Narrative Section */}
-                    <div className="space-y-2 relative z-10 border-t border-b border-[#E6DED2]/60 py-4 text-left">
-                      <h4 className="font-serif text-xs font-bold text-[#1F4B3A] uppercase tracking-wider flex items-center gap-1.5 m-0">
+                    <div className="space-y-1.5 relative z-10 border-t border-b border-[#E6DED2]/60 py-3.5 text-left">
+                      <h4 className="font-serif text-[10px] font-bold text-[#1F4B3A] uppercase tracking-wider flex items-center gap-1.5 m-0">
                         <span>🖋</span>
                         <span>AI Financial Story</span>
                       </h4>
-                      <p className="font-serif text-[11px] text-[#1F2430] italic leading-relaxed m-0">
+                      <p className="font-serif text-[10.5px] text-[#1F2430] italic leading-relaxed m-0">
                         "Based on your last 12 months, {predictionData.financial_story}"
                       </p>
                     </div>
@@ -1430,11 +1504,11 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                       
                       {/* Positive Drivers */}
                       <div className="space-y-2 text-left">
-                        <h4 className="font-serif text-xs font-bold text-[#2E6A52] uppercase tracking-wider m-0">Financial Strengths</h4>
+                        <h4 className="font-serif text-[10px] font-bold text-[#2E6A52] uppercase tracking-wider m-0">Financial Strengths</h4>
                         <div className="space-y-1.5">
                           {predictionData.strengthened_profile?.map((item, idx) => (
-                            <div key={idx} className="flex gap-1.5 items-start text-[10px] font-sans font-semibold text-[#1F2430]">
-                              <Check className="w-3.5 h-3.5 text-[#2E6A52] flex-shrink-0 mt-0.5" />
+                            <div key={idx} className="flex gap-1.5 items-start text-[9.5px] font-sans font-semibold text-[#1F2430]">
+                              <Check className="w-3 h-3 text-[#2E6A52] flex-shrink-0 mt-0.5" />
                               <span>{item.title}</span>
                             </div>
                           ))}
@@ -1443,10 +1517,10 @@ export default function Dashboard({ predictionData, setPredictionData }) {
 
                       {/* Limiting Drivers */}
                       <div className="space-y-2 text-left">
-                        <h4 className="font-serif text-xs font-bold text-[#B88A3B] uppercase tracking-wider m-0">Improvement Opportunities</h4>
+                        <h4 className="font-serif text-[10px] font-bold text-[#B88A3B] uppercase tracking-wider m-0">Improvement Opportunities</h4>
                         <div className="space-y-1.5">
                           {predictionData.reduced_readiness?.map((item, idx) => (
-                            <div key={idx} className="flex gap-1.5 items-start text-[10px] font-sans font-semibold text-[#1F2430]">
+                            <div key={idx} className="flex gap-1.5 items-start text-[9.5px] font-sans font-semibold text-[#1F2430]">
                               <AlertTriangle className="w-3.5 h-3.5 text-[#B88A3B] flex-shrink-0 mt-0.5" />
                               <span>{item.title}</span>
                             </div>
@@ -1455,16 +1529,16 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                       </div>
                     </div>
 
-                    {/* Priority action */}
-                    <div className="bg-[#edf3ee]/40 border border-[#c4d6c7] p-4 rounded-lg relative z-10 text-left">
-                      <h4 className="font-serif text-xs font-bold text-[#1F4B3A] uppercase tracking-wider m-0 flex items-center gap-1.5">
-                        <Compass className="w-4 h-4 text-[#2E6A52]" />
+                    {/* Priority action card */}
+                    <div className="bg-[#edf3ee]/30 border border-[#c4d6c7]/65 p-4.5 rounded-xl relative z-10 text-left my-2.5 shadow-[inset_0_1px_2px_rgba(31,75,58,0.02)]">
+                      <h4 className="font-serif text-[10px] font-bold text-[#1F4B3A] uppercase tracking-wider m-0 flex items-center gap-1.5">
+                        <Compass className="w-3.5 h-3.5 text-[#2E6A52]" />
                         <span>Priority Coaching Recommendation</span>
                       </h4>
-                      <h5 className="font-serif text-sm font-bold text-[#1F2430] mt-2 mb-1">{predictionData.coaching?.priority_action}</h5>
-                      <p className="font-sans text-[10px] text-[#666666] leading-relaxed m-0">{predictionData.coaching?.action_description}</p>
+                      <h5 className="font-serif text-xs font-bold text-[#1F2430] mt-1.5 mb-1">{predictionData.coaching?.priority_action}</h5>
+                      <p className="font-sans text-[9.5px] text-[#555555] leading-relaxed m-0">{predictionData.coaching?.action_description}</p>
                       
-                      <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-[#c4d6c7]/60 text-[9px] font-sans">
+                      <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-[#c4d6c7]/50 text-[9px] font-sans">
                         <div>
                           <strong className="text-[#1F2430]">Estimated Improvement:</strong>
                           <span className="text-[#2E6A52] ml-1 font-bold">+8 Readiness Points</span>
@@ -1478,63 +1552,85 @@ export default function Dashboard({ predictionData, setPredictionData }) {
 
                     {/* Roadmap Timeline */}
                     <div className="border-t border-[#E6DED2]/60 pt-4 relative z-10 space-y-3 text-left">
-                      <h4 className="font-serif text-xs font-bold text-[#1F4B3A] uppercase tracking-wider m-0">30/60/90 Day Savings Roadmap</h4>
+                      <h4 className="font-serif text-[10px] font-bold text-[#1F4B3A] uppercase tracking-wider m-0">30/60/90 Day Savings Roadmap</h4>
                       
-                      <div className="grid grid-cols-3 gap-4 text-[9px] font-sans">
-                        <div className="space-y-1.5">
-                          <span className="font-bold text-[#1F4B3A] uppercase">30 Days</span>
-                          <p className="text-[#666666] leading-normal m-0 line-clamp-3">{predictionData.coaching?.roadmap?.['30_days']?.[0]}</p>
+                      <div className="grid grid-cols-3 gap-3.5 text-[9.5px] font-sans">
+                        <div className="bg-[#fcfbf9] border border-[#E6DED2]/85 p-2.5 rounded-xl space-y-2">
+                          <div className="flex items-center gap-1">
+                            <span className="w-1 h-1 rounded-full bg-[#1F4B3A]" />
+                            <span className="font-bold text-[#1F4B3A] uppercase tracking-wider text-[8px]">30-Day Milestone</span>
+                          </div>
+                          <p className="text-[#555555] leading-normal m-0 text-[9px] line-clamp-3">{predictionData.coaching?.roadmap?.['30_days']?.[0]}</p>
                         </div>
-                        <div className="space-y-1.5">
-                          <span className="font-bold text-[#B88A3B] uppercase">60 Days</span>
-                          <p className="text-[#666666] leading-normal m-0 line-clamp-3">{predictionData.coaching?.roadmap?.['60_days']?.[0]}</p>
+                        <div className="bg-[#fcfbf9] border border-[#E6DED2]/85 p-2.5 rounded-xl space-y-2">
+                          <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#B88A3B]" />
+                            <span className="font-bold text-[#B88A3B] uppercase tracking-wider text-[8px]">60-Day Milestone</span>
+                          </div>
+                          <p className="text-[#555555] leading-normal m-0 text-[9px] line-clamp-3">{predictionData.coaching?.roadmap?.['60_days']?.[0]}</p>
                         </div>
-                        <div className="space-y-1.5">
-                          <span className="font-bold text-[#2E6A52] uppercase">90 Days</span>
-                          <p className="text-[#666666] leading-normal m-0 line-clamp-3">{predictionData.coaching?.roadmap?.['90_days']?.[0]}</p>
+                        <div className="bg-[#fcfbf9] border border-[#E6DED2]/85 p-2.5 rounded-xl space-y-2">
+                          <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#2E6A52]" />
+                            <span className="font-bold text-[#2E6A52] uppercase tracking-wider text-[8px]">90-Day Milestone</span>
+                          </div>
+                          <p className="text-[#555555] leading-normal m-0 text-[9px] line-clamp-3">{predictionData.coaching?.roadmap?.['90_days']?.[0]}</p>
                         </div>
                       </div>
                     </div>
 
                     {/* Future Projection Timeline */}
                     <div className="border-t border-[#E6DED2]/60 pt-4 relative z-10 space-y-3 text-left">
-                      <h4 className="font-serif text-xs font-bold text-[#1F4B3A] uppercase tracking-wider m-0">Readiness Growth Projection</h4>
-                      <div className="flex justify-between items-center bg-[#fcfbf9] border border-[#E6DED2]/60 p-2.5 rounded text-[9px] font-sans">
-                        <div><strong className="text-[#666666]">Today:</strong> <span className="font-serif font-bold text-[#A73B3B] uppercase">{predictionData.prediction}</span></div>
-                        <div className="text-[#666666]">&rarr;</div>
-                        <div><strong className="text-[#666666]">90 Days:</strong> <span className="font-serif font-bold text-[#B88A3B] uppercase">{predictionData.prediction === 'Building' ? 'Emerging' : 'Ready'}</span></div>
-                        <div className="text-[#666666]">&rarr;</div>
-                        <div><strong className="text-[#666666]">180 Days:</strong> <span className="font-serif font-bold text-[#2E6A52] uppercase">Ready Elite</span></div>
+                      <h4 className="font-serif text-[10px] font-bold text-[#1F4B3A] uppercase tracking-wider m-0">Readiness Growth Projection</h4>
+                      
+                      <div className="flex justify-between items-center bg-[#fcfbf9] border border-[#E6DED2]/80 p-3 rounded-xl text-[9.5px] font-sans text-center gap-1.5">
+                        <div className="flex-1 space-y-0.5 bg-[#FFFDF8] border border-[#E6DED2]/60 p-2 rounded-lg">
+                          <span className="block text-[7px] font-bold text-[#666666] uppercase tracking-wider">Today</span>
+                          <span className="font-serif font-bold text-[#A73B3B] uppercase text-[10px]">{predictionData.prediction}</span>
+                        </div>
+                        
+                        <div className="text-[#c4d6c7] font-bold text-base select-none">&rarr;</div>
+                        
+                        <div className="flex-1 space-y-0.5 bg-[#FFFDF8] border border-[#E6DED2]/60 p-2 rounded-lg">
+                          <span className="block text-[7px] font-bold text-[#666666] uppercase tracking-wider">90 Days</span>
+                          <span className="font-serif font-bold text-[#B88A3B] uppercase text-[10px]">{predictionData.prediction === 'Building' ? 'Emerging' : 'Ready'}</span>
+                        </div>
+                        
+                        <div className="text-[#c4d6c7] font-bold text-base select-none">&rarr;</div>
+                        
+                        <div className="flex-1 space-y-0.5 bg-[#FFFDF8] border border-[#E6DED2]/60 p-2 rounded-lg">
+                          <span className="block text-[7px] font-bold text-[#666666] uppercase tracking-wider">180 Days</span>
+                          <span className="font-serif font-bold text-[#2E6A52] uppercase text-[10px]">Ready Elite</span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* QR Code and Disclaimer Footer */}
+                    {/* Disclaimer Footer */}
                     <div className="border-t-2 border-[#E6DED2] pt-4 flex justify-between items-center relative z-10 gap-4">
                       
                       {/* Left: General verification info */}
-                      <div className="space-y-1 w-[80%] text-[8px] font-sans text-[#666666] leading-normal text-left">
+                      <div className="space-y-1 w-[80%] text-[7.5px] font-sans text-[#666666] leading-normal text-left">
                         <div>
                           <strong className="text-[#1F2430]">Generated by GrowLedger AI alternative credit bureau engine.</strong> Behaviour-based cash flow verification. No demographic variables or social attributes were factored in calculations.
                         </div>
                         <p className="italic m-0">
-                          Disclaimer: This document is formulated exclusively for behavioral credit coaching and financial guidance purposes. It does not constitute a formal legal score issued by licensed central banking authorities.
+                          Disclaimer: This document is formulated exclusively for credit coaching purposes. It does not constitute a formal score issued by banking authorities.
                         </p>
                       </div>
 
                       {/* Right: Mock QR code element */}
-                      <div className="flex flex-col items-center gap-1 shrink-0 w-[20%]">
-                        {/* Drawn secure QR box */}
-                        <div className="w-12 h-12 border-2 border-[#1F2430] p-1 bg-white flex flex-wrap gap-0.5 justify-center content-center select-none shadow-xs">
-                          <div className="w-2.5 h-2.5 bg-[#1f2430] self-start mr-auto" />
-                          <div className="w-2.5 h-2.5 bg-[#1f2430] self-start ml-auto" />
-                          <div className="w-full h-1" />
-                          <div className="w-1.5 h-1.5 bg-[#1f2430]" />
-                          <div className="w-2 h-2 bg-[#1f2430] ml-1" />
-                          <div className="w-full h-1" />
-                          <div className="w-2.5 h-2.5 bg-[#1f2430] self-end mr-auto" />
-                          <div className="w-1.5 h-1.5 bg-[#1f2430] self-end ml-auto" />
+                      <div className="flex flex-col items-center gap-0.5 shrink-0 w-[20%]">
+                        <div className="w-10 h-10 border-2 border-[#1F2430] p-1 bg-white flex flex-wrap gap-0.5 justify-center content-center select-none shadow-xs">
+                          <div className="w-2 h-2 bg-[#1f2430] self-start mr-auto" />
+                          <div className="w-2 h-2 bg-[#1f2430] self-start ml-auto" />
+                          <div className="w-full h-0.5" />
+                          <div className="w-1 h-1 bg-[#1f2430]" />
+                          <div className="w-1.5 h-1.5 bg-[#1f2430] ml-0.5" />
+                          <div className="w-full h-0.5" />
+                          <div className="w-2 h-2 bg-[#1f2430] self-end mr-auto" />
+                          <div className="w-1 h-1 bg-[#1f2430] self-end ml-auto" />
                         </div>
-                        <span className="block text-[6px] font-sans font-bold text-[#666666] tracking-wide uppercase mt-0.5">Verify Passport</span>
+                        <span className="block text-[5.5px] font-sans font-bold text-[#666666] tracking-wide uppercase mt-0.5">Verify Passport</span>
                       </div>
 
                     </div>
@@ -1573,67 +1669,7 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                 </div>
               </div>
 
-              {/* SECTION 11: Generation Dialog Animation Overlay */}
-              {exporting && (
-                <div className="fixed inset-0 z-50 bg-[#1F2430]/60 backdrop-blur-xs flex items-center justify-center p-4">
-                  <div className="bg-[#FFFDF8] border-2 border-[#E6DED2] p-8 rounded-[24px] max-w-sm w-full space-y-6 shadow-xl animate-scale-in text-center">
-                    
-                    <div className="space-y-1">
-                      <h4 className="font-serif text-lg font-extrabold text-[#1F2430] m-0">Generating Alternative Bureau Record</h4>
-                      <p className="font-sans text-xs text-[#666666]">Applying secure cryptographic stamps...</p>
-                    </div>
-
-                    <div className="space-y-3.5 text-left max-w-xs mx-auto">
-                      {[
-                        "Formatting Financial Report",
-                        "Applying AI Summary",
-                        "Embedding Behaviour Analysis",
-                        "Applying Verification Stamp",
-                        "Finalizing PDF"
-                      ].map((stepText, idx) => {
-                        const stepNum = idx + 1;
-                        const isCompleted = exportStep > stepNum;
-                        const isActive = exportStep === stepNum;
-                        
-                        return (
-                          <div 
-                            key={idx} 
-                            className={`flex items-center gap-3 transition-all duration-200 ${
-                              isCompleted ? 'text-[#666666]' : isActive ? 'text-[#2E6A52] font-bold scale-[1.01]' : 'text-[#666666]/35'
-                            }`}
-                          >
-                            <div className="flex-shrink-0">
-                              {isCompleted ? (
-                                <div className="w-5 h-5 rounded-full bg-[#2E6A52] flex items-center justify-center text-white scale-110 shadow-sm animate-scale-in">
-                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
-                                </div>
-                              ) : isActive ? (
-                                <div className="w-5 h-5 rounded-full border-2 border-[#2E6A52] flex items-center justify-center text-[#2E6A52] animate-pulse bg-[#edf3ee]/40">
-                                  <span className="w-1.5 h-1.5 bg-[#2E6A52] rounded-full" />
-                                </div>
-                              ) : (
-                                <div className="w-5 h-5 rounded-full border border-[#E6DED2] bg-[#fcfbf9] flex items-center justify-center text-[9px] text-[#666666] font-bold font-mono">
-                                  {stepNum}
-                                </div>
-                              )}
-                            </div>
-                            <span className="text-xs font-sans">{stepText}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="w-full bg-[#E6DED2] rounded-full h-1.5 overflow-hidden max-w-xs mx-auto">
-                      <div 
-                        className="bg-[#2E6A52] h-full rounded-full transition-all duration-300 ease-out"
-                        style={{ width: `${(exportStep / 5) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-            </div>        </div>
+              </div>
           ) : (
             /* Live Financial Passport Preview Panel (WOW Feature) */
             <div className="sticky top-24 bg-[#FFFDF8] border-2 border-dashed border-[#E6DED2] p-8 rounded-[20px] shadow-sm space-y-6 animate-scale-in">
@@ -1754,6 +1790,65 @@ export default function Dashboard({ predictionData, setPredictionData }) {
           )}
         </div>
       </div>
+      {/* SECTION 11: Generation Dialog Animation Overlay (Rendered at root to avoid transformed parent alignment clipping) */}
+      {exporting && (
+        <div className="fixed inset-0 z-[9999] bg-[#1F2430]/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFDF8] border-2 border-[#E6DED2] p-8 rounded-[24px] max-w-sm w-full space-y-6 shadow-xl animate-scale-in text-center">
+            
+            <div className="space-y-1">
+              <h4 className="font-serif text-lg font-extrabold text-[#1F2430] m-0">Generating Alternative Bureau Record</h4>
+              <p className="font-sans text-xs text-[#666666]">Applying secure cryptographic stamps...</p>
+            </div>
+
+            <div className="space-y-3.5 text-left max-w-xs mx-auto">
+              {[
+                "Formatting Financial Report",
+                "Applying AI Summary",
+                "Embedding Behaviour Analysis",
+                "Applying Verification Stamp",
+                "Finalizing PDF"
+              ].map((stepText, idx) => {
+                const stepNum = idx + 1;
+                const isCompleted = exportStep > stepNum;
+                const isActive = exportStep === stepNum;
+                
+                return (
+                  <div 
+                    key={idx} 
+                    className={`flex items-center gap-3 transition-all duration-200 ${
+                      isCompleted ? 'text-[#666666]' : isActive ? 'text-[#2E6A52] font-bold scale-[1.01]' : 'text-[#666666]/35'
+                    }`}
+                  >
+                    <div className="flex-shrink-0">
+                      {isCompleted ? (
+                        <div className="w-5.5 h-5.5 rounded-full bg-[#2E6A52] flex items-center justify-center text-white scale-110 shadow-sm animate-scale-in animate-stamp-reveal">
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        </div>
+                      ) : isActive ? (
+                        <div className="w-5.5 h-5.5 rounded-full border-2 border-[#2E6A52] flex items-center justify-center text-[#2E6A52] animate-pulse bg-[#edf3ee]/40">
+                          <span className="w-1.5 h-1.5 bg-[#2E6A52] rounded-full" />
+                        </div>
+                      ) : (
+                        <div className="w-5.5 h-5.5 rounded-full border border-[#E6DED2] bg-[#fcfbf9] flex items-center justify-center text-[9px] text-[#666666] font-bold font-mono">
+                          {stepNum}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-xs font-sans">{stepText}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="w-full bg-[#E6DED2] rounded-full h-1.5 overflow-hidden max-w-xs mx-auto">
+              <div 
+                className="bg-[#2E6A52] h-full rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${(exportStep / 5) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

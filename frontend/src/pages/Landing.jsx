@@ -323,7 +323,38 @@ export default function Landing({ setPredictionData }) {
     setLoadingId(profile.id);
     const toastId = toast.loading(`Reading ${profile.name}'s financial profile...`);
     try {
-      const result = await predictCreditReadiness(profile.payload);
+      const source = profile.payload || {};
+      
+      // Map occupation to one of the backend's allowed categories:
+      // ["Delivery Partner", "Tea Shop Owner", "Freelancer", "Boutique Owner", "Daily Wage Worker"]
+      let apiOccupation = source.occupation;
+      if (apiOccupation === 'Chai Stall Owner') apiOccupation = 'Tea Shop Owner';
+      else if (apiOccupation === 'Auto Driver') apiOccupation = 'Delivery Partner';
+      else if (apiOccupation === 'Freelance Tailor') apiOccupation = 'Freelancer';
+      else if (apiOccupation === 'Street Vendor') apiOccupation = 'Daily Wage Worker';
+      
+      // Clean and normalize incoming payload variance and growth strings
+      let apiVariance = source.income_variance || 'Medium';
+      let apiGrowth = source.income_growth || 'Stable';
+      
+      // Ensure growth is capitalised correctly: "Stable", "Increasing", "Declining"
+      if (apiGrowth === 'Decreasing') apiGrowth = 'Declining';
+      
+      const payload = {
+        occupation: apiOccupation,
+        monthly_income: Number(source.monthly_income),
+        monthly_expenses: Number(source.monthly_expenses),
+        savings: Number(source.savings),
+        average_balance: Number(source.average_balance),
+        digital_transactions: Number(source.digital_transactions),
+        cash_transactions: Number(source.cash_transactions),
+        income_variance: apiVariance,
+        missed_payments: Number(source.missed_payments),
+        income_growth: apiGrowth,
+        emi_ratio: Number(source.emi_ratio || 0)
+      };
+      
+      const result = await predictCreditReadiness(payload);
       if (result.success) {
         setPredictionData(result.data);
         toast.success('Profile loaded. Generating passport...', { id: toastId });
@@ -331,8 +362,10 @@ export default function Landing({ setPredictionData }) {
       } else {
         throw new Error(result.error?.message || 'Prediction failed.');
       }
-    } catch {
-      toast.error('Could not connect. Loading demo result instead.', { id: toastId });
+    } catch (err) {
+      console.warn("Prediction API failed, using fallback:", err);
+      const errMsg = err.message || (err.response && err.response.data && err.response.data.error && err.response.data.error.message) || String(err);
+      toast.error(`Error: ${errMsg}. Loading offline fallback instead.`, { id: toastId });
       setPredictionData({
         prediction: profile.tier,
         confidence: profile.tierColor === 'sage' ? 92.0 : profile.tierColor === 'clay' ? 61.0 : 38.0,
