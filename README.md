@@ -1,5 +1,55 @@
-# GrowLedger
+# GrowLedger AI
 
-Understand today. Improve tomorrow.
+## Overview
+GrowLedger AI is an Explainable AI powered financial readiness assessment platform.
 
-An AI-powered Financial Readiness Companion that helps gig workers and small businesses understand and improve their financial health before applying for formal credit.
+## Tech Stack
+- React
+- Vite
+- Tailwind CSS
+- Flask
+- LightGBM
+- TreeSHAP
+
+## Setup
+
+### Frontend
+cd frontend
+npm install
+npm run dev
+
+### Backend
+cd backend
+pip install -r requirements.txt
+python app.py
+
+## Deployment
+Frontend: Vercel
+Backend: Render# GrowLedger AI
+
+## Overview
+GrowLedger AI is an Explainable AI powered financial readiness assessment platform.
+
+## Tech Stack
+- React
+- Vite
+- Tailwind CSS
+- Flask
+- LightGBM
+- TreeSHAP
+
+## Setup
+
+### Frontend
+cd frontend
+npm install
+npm run dev
+
+### Backend
+cd backend
+pip install -r requirements.txt
+python app.py
+
+## Deployment
+Frontend: Vercel
+Backend: Render
