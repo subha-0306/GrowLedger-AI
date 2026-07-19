@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { predictCreditReadiness } from '../services/api';
-import html2pdf from 'html2pdf.js';
+
 import demoProfiles from '../data/demo_profiles.json';
 import { 
   ArrowRight, Play, RefreshCw, AlertCircle, HelpCircle, ShieldCheck, 
@@ -28,8 +28,7 @@ export default function Dashboard({ predictionData, setPredictionData }) {
   const [selectedProfileId, setSelectedProfileId] = useState(null);
   const [showMobilePreview, setShowMobilePreview] = useState(false);
   const [animateProgress, setAnimateProgress] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [exportStep, setExportStep] = useState(1);
+
 
   // Form State
   const [form, setForm] = useState({
@@ -100,123 +99,6 @@ export default function Dashboard({ predictionData, setPredictionData }) {
     return colors[tier] || colors.Building;
   };
 
-  const prepareSanitizedStyles = () => {
-    const backups = [];
-    
-    // Combine standard styleSheets and constructable adoptedStyleSheets
-    const sheets = [
-      ...Array.from(document.styleSheets),
-      ...(document.adoptedStyleSheets || [])
-    ];
-    
-    for (let sheetIdx = 0; sheetIdx < sheets.length; sheetIdx++) {
-      const sheet = sheets[sheetIdx];
-      try {
-        const rules = sheet.cssRules || sheet.rules;
-        if (!rules) continue;
-        
-        const sheetBackups = [];
-        
-        // Loop backwards to allow deletion without index shifts
-        for (let ruleIdx = rules.length - 1; ruleIdx >= 0; ruleIdx--) {
-          const rule = rules[ruleIdx];
-          if (!rule || !rule.cssText) continue;
-          
-          const cssText = rule.cssText;
-          if (cssText.includes('oklch') || cssText.includes('oklab')) {
-            // Backup the original rule index and text
-            sheetBackups.push({ index: ruleIdx, originalText: cssText });
-            try {
-              sheet.deleteRule(ruleIdx);
-            } catch (err) {
-              console.warn("Could not delete rule:", cssText, err);
-            }
-          }
-        }
-        
-        if (sheetBackups.length > 0) {
-          backups.push({ sheet, sheetBackups });
-        }
-      } catch (e) {
-        console.warn("Security error accessing stylesheet rules:", e);
-      }
-    }
-    
-    // Return cleanup function
-    return () => {
-      // Re-insert rules from smallest index to largest index to maintain original structure
-      for (const item of backups) {
-        const { sheet, sheetBackups } = item;
-        const sortedBackups = [...sheetBackups].sort((a, b) => a.index - b.index);
-        for (const backup of sortedBackups) {
-          try {
-            sheet.insertRule(backup.originalText, backup.index);
-          } catch (err) {
-            console.warn("Could not restore stylesheet rule:", backup.originalText, err);
-          }
-        }
-      }
-    };
-  };
-
-  const downloadPDF = () => {
-    setExporting(true);
-    setExportStep(1);
-    
-    let currentStep = 1;
-    const interval = setInterval(() => {
-      currentStep += 1;
-      if (currentStep <= 5) {
-        setExportStep(currentStep);
-      } else {
-        clearInterval(interval);
-        
-        try {
-          const element = document.getElementById('passport-print-template');
-          if (!element) throw new Error("Passport template not found.");
-          
-          // 1. Temporarily sanitize stylesheet rules in memory to prevent html2canvas parsing crash
-          const restoreStyles = prepareSanitizedStyles();
-          
-          const opt = {
-            margin:       0.2,
-            filename:     `GL-Readiness-Passport-${form.occupation.replace(/\s+/g, '-')}.pdf`,
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true, logging: false },
-            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
-            pagebreak:    { mode: ['avoid-all'], avoid: ['#passport-print-template div'] }
-          };
-          
-          const html2pdfLib = typeof html2pdf === 'function' ? html2pdf : (html2pdf.default || window.html2pdf);
-          if (!html2pdfLib) {
-            throw new Error("html2pdf library could not be resolved.");
-          }
-          
-          html2pdfLib().from(element).set(opt).save()
-            .then(() => {
-              setExporting(false);
-              restoreStyles(); // Restore global styles
-              toast.success("Passport PDF downloaded successfully!");
-            })
-            .catch((err) => {
-              console.error("PDF generation promise rejection error:", err);
-              setExporting(false);
-              restoreStyles();
-              toast.error(`PDF Generation Error: ${err.message || err}`);
-            });
-            
-        } catch (err) {
-          console.error("PDF runtime exception caught:", err);
-          setExporting(false);
-          toast.error(`PDF Runtime Error: ${err.message || err}`);
-        }
-      }
-    }, 250);
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
 
   const handleProfileSelect = (profile) => {
     const selectedData = {
@@ -1398,12 +1280,12 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                     <span>Official Financial Readiness Passport</span>
                   </h4>
                   <span className="font-mono text-[9px] font-bold bg-[#edf3ee] border border-[#c4d6c7] text-[#1F4B3A] px-2.5 py-0.5 rounded-full">
-                    EXPORT READY
+                    PRINT READY
                   </span>
                 </div>
 
                 <p className="font-sans text-xs text-[#666666] leading-relaxed m-0">
-                  Generate and download your behavior-based Alternative Credit Passport. This document functions as an official credentials record for participating coaching institutions.
+                  Print or save your official Financial Readiness Passport using your browser's built-in print functionality. This preserves formatting and allows you to save the passport as a PDF.
                 </p>
 
                 {/* Passport Preview Pane */}
@@ -1637,31 +1519,12 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                   </div>
                 </div>
 
-                {/* Print and Download Buttons */}
-                <div className="flex gap-4 pt-2">
+                {/* Print Button */}
+                <div className="flex justify-center pt-2">
                   <button
                     type="button"
-                    onClick={downloadPDF}
-                    disabled={exporting}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-[12px] text-[#FFFDF8] font-bold bg-[#1F4B3A] hover:bg-[#2E6A52] hover:translate-y-[-2px] transition-all duration-200 shadow-md cursor-pointer disabled:opacity-60 text-sm font-sans"
-                  >
-                    {exporting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-base">📄</span>
-                        Download Secure PDF
-                      </>
-                    )}
-                  </button>
-                  
-                  <button
-                    type="button"
-                    onClick={handlePrint}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-[12px] font-bold bg-[#f4efe4] hover:bg-[#ebdcb4] hover:translate-y-[-2px] text-[#666666] transition-all duration-200 border border-[#E6DED2] cursor-pointer text-sm font-sans shadow-sm"
+                    onClick={() => window.print()}
+                    className="flex items-center justify-center gap-2.5 py-3.5 px-10 rounded-[14px] text-[#FFFDF8] font-bold bg-[#1F4B3A] hover:bg-[#2E6A52] hover:translate-y-[-2px] transition-all duration-200 shadow-md cursor-pointer text-sm font-sans"
                   >
                     <span className="text-base">🖨</span>
                     Print Passport
@@ -1790,65 +1653,7 @@ export default function Dashboard({ predictionData, setPredictionData }) {
           )}
         </div>
       </div>
-      {/* SECTION 11: Generation Dialog Animation Overlay (Rendered at root to avoid transformed parent alignment clipping) */}
-      {exporting && (
-        <div className="fixed inset-0 z-[9999] bg-[#1F2430]/75 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#FFFDF8] border-2 border-[#E6DED2] p-8 rounded-[24px] max-w-sm w-full space-y-6 shadow-xl animate-scale-in text-center">
-            
-            <div className="space-y-1">
-              <h4 className="font-serif text-lg font-extrabold text-[#1F2430] m-0">Generating Alternative Bureau Record</h4>
-              <p className="font-sans text-xs text-[#666666]">Applying secure cryptographic stamps...</p>
-            </div>
 
-            <div className="space-y-3.5 text-left max-w-xs mx-auto">
-              {[
-                "Formatting Financial Report",
-                "Applying AI Summary",
-                "Embedding Behaviour Analysis",
-                "Applying Verification Stamp",
-                "Finalizing PDF"
-              ].map((stepText, idx) => {
-                const stepNum = idx + 1;
-                const isCompleted = exportStep > stepNum;
-                const isActive = exportStep === stepNum;
-                
-                return (
-                  <div 
-                    key={idx} 
-                    className={`flex items-center gap-3 transition-all duration-200 ${
-                      isCompleted ? 'text-[#666666]' : isActive ? 'text-[#2E6A52] font-bold scale-[1.01]' : 'text-[#666666]/35'
-                    }`}
-                  >
-                    <div className="flex-shrink-0">
-                      {isCompleted ? (
-                        <div className="w-5.5 h-5.5 rounded-full bg-[#2E6A52] flex items-center justify-center text-white scale-110 shadow-sm animate-scale-in animate-stamp-reveal">
-                          <Check className="w-3.5 h-3.5 stroke-[3]" />
-                        </div>
-                      ) : isActive ? (
-                        <div className="w-5.5 h-5.5 rounded-full border-2 border-[#2E6A52] flex items-center justify-center text-[#2E6A52] animate-pulse bg-[#edf3ee]/40">
-                          <span className="w-1.5 h-1.5 bg-[#2E6A52] rounded-full" />
-                        </div>
-                      ) : (
-                        <div className="w-5.5 h-5.5 rounded-full border border-[#E6DED2] bg-[#fcfbf9] flex items-center justify-center text-[9px] text-[#666666] font-bold font-mono">
-                          {stepNum}
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-xs font-sans">{stepText}</span>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="w-full bg-[#E6DED2] rounded-full h-1.5 overflow-hidden max-w-xs mx-auto">
-              <div 
-                className="bg-[#2E6A52] h-full rounded-full transition-all duration-300 ease-out"
-                style={{ width: `${(exportStep / 5) * 100}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

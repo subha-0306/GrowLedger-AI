@@ -1084,61 +1084,94 @@ export default function Landing({ setPredictionData }) {
       <SectionDivider />
 
       {/* ════════════════════════════════════════════════════════
-          8. FOOTER — Dark Forest Green Background
+          8. FOOTER — Premium Product
       ════════════════════════════════════════════════════════ */}
-      <footer style={{ background: '#0d2018', color: '#8fa8a0', borderTop: '1px solid rgba(194,166,122,0.20)' }}>
-        <div className="max-w-[1200px] mx-auto" style={{ padding: '80px 56px 64px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '64px', alignItems: 'start' }}>
+      <footer style={{ background: '#0d2018', color: '#8fa8a0', borderTop: '1px solid rgba(194,166,122,0.18)' }}>
 
-          {/* Brand */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Main three-column grid */}
+        <div
+          className="max-w-[1200px] mx-auto"
+          style={{ padding: '72px 56px 56px', display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: '64px', alignItems: 'start' }}
+        >
+
+          {/* ── Left: Brand + Mission ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <img src="/logo.png" alt="GrowLedger"
-                style={{ width: '80px', height: '80px', marginTop: '-16px', marginBottom: '-16px', objectFit: 'contain', filter: 'drop-shadow(0 2px 8px rgba(92,127,91,0.45))' }}
+              <img
+                src="/logo.png"
+                alt="GrowLedger"
+                style={{ width: '76px', height: '76px', marginTop: '-14px', marginBottom: '-14px', objectFit: 'contain', filter: 'drop-shadow(0 2px 10px rgba(92,127,91,0.50))' }}
               />
-              <span style={{ fontFamily: "'Lora', serif", fontSize: '20px', fontWeight: 700, color: 'rgba(255,255,255,0.90)', letterSpacing: '-0.02em' }}>GrowLedger</span>
+              <span style={{ fontFamily: "'Lora', serif", fontSize: '20px', fontWeight: 700, color: 'rgba(255,255,255,0.92)', letterSpacing: '-0.02em' }}>GrowLedger</span>
             </div>
-            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: '13px', color: '#5a7870', lineHeight: 1.75, maxWidth: '280px', margin: 0 }}>
-              A transparent alternative financial readiness engine for gig workers and small merchants across India.
+            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: '13.5px', color: '#6b8e85', lineHeight: 1.80, maxWidth: '300px', margin: 0 }}>
+              Helping financially responsible individuals build trust beyond traditional credit scores through Explainable AI.
             </p>
           </div>
 
-          {/* Nav links */}
+          {/* ── Middle: Product links ── */}
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.28em', textTransform: 'uppercase', color: '#4a6660', marginBottom: 16 }}>PAGES</p>
-            {['How It Works', 'Methodology', 'Demo Profiles', 'Start Assessment'].map((item) => (
+            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.28em', textTransform: 'uppercase', color: '#4a6660', marginBottom: 18, marginTop: 0 }}>
+              Product
+            </p>
+            {[
+              { label: 'Home',        href: '/' },
+              { label: 'Assessment',  href: '/#how-it-works' },
+              { label: 'Methodology', href: '/#methodology' },
+              { label: 'Demo Profiles', href: '/#demo-profiles' },
+            ].map(({ label, href }) => (
               <a
-                key={item}
-                href={item === 'Start Assessment' ? '/assess' : `/#${item.toLowerCase().replace(/ /g, '-')}`}
+                key={label}
+                href={href}
                 className="footer-link"
-                style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', color: '#5a7870', textDecoration: 'none', padding: '5px 0', transition: 'color 0.2s ease-out', display: 'block' }}
-                onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.85)'}
+                style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', color: '#5a7870', textDecoration: 'none', padding: '5px 0', display: 'block', transition: 'color 0.2s ease-out' }}
+                onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.82)'}
                 onMouseLeave={e => e.currentTarget.style.color = '#5a7870'}
               >
-                {item}
+                {label}
               </a>
             ))}
           </nav>
 
-          {/* Built for */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'right' }}>
-            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.28em', textTransform: 'uppercase', color: '#4a6660', margin: 0 }}>BUILT FOR</p>
-            <p style={{ fontFamily: "'Lora', serif", fontSize: '18px', color: 'rgba(255,255,255,0.88)', fontWeight: 600, margin: 0 }}>Bharat &middot; 2026</p>
-            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: '13px', color: '#5a7870', lineHeight: 1.75, margin: 0 }}>
-              LightGBM &middot; TreeSHAP &middot; Flask &middot; React<br />
-              National Hackathon Submission
+          {/* ── Right: Technology ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.28em', textTransform: 'uppercase', color: '#4a6660', marginBottom: 18, marginTop: 0 }}>
+              Technology
+            </p>
+            {['LightGBM', 'TreeSHAP', 'Behavioural Analytics', 'Counterfactual Coaching'].map((item) => (
+              <span
+                key={item}
+                style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', color: '#5a7870', padding: '5px 0', display: 'block', lineHeight: 1.5 }}
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+
+        </div>
+
+        {/* ── Bottom divider + legal ── */}
+        <div style={{ borderTop: '1px solid rgba(194,166,122,0.12)' }}>
+          <div
+            className="max-w-[1200px] mx-auto"
+            style={{ padding: '28px 56px 36px', display: 'flex', flexDirection: 'column', gap: 10 }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '10.5px', color: '#3d5550', letterSpacing: '0.04em', margin: 0 }}>
+                &copy; 2026 GrowLedger AI.
+              </p>
+              <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '10.5px', color: '#3d5550', letterSpacing: '0.04em', margin: 0 }}>
+                Built to advance responsible financial inclusion.
+              </p>
+            </div>
+            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#2d4540', letterSpacing: '0.02em', lineHeight: 1.65, margin: 0, maxWidth: '780px' }}>
+              This assessment provides behavioural financial guidance and should not be interpreted as an official credit score or lending decision.
             </p>
           </div>
-
         </div>
 
-        {/* Bottom bar */}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-          <div className="max-w-[1200px] mx-auto" style={{ padding: '20px 56px', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '10.5px', color: '#3d5550', letterSpacing: '0.04em', margin: 0 }}>&copy; 2026 GrowLedger. All rights reserved.</p>
-            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '10.5px', color: '#3d5550', letterSpacing: '0.04em', margin: 0 }}>Transparent &middot; Explainable &middot; Fair</p>
-          </div>
-        </div>
       </footer>
+
 
     </div>
   );
