@@ -5,7 +5,9 @@ import demoProfiles from '../data/demo_profiles.json';
 import { 
   ArrowRight, ArrowLeft, CheckCircle2, Loader2, Check, Activity, 
   AlertTriangle, Compass, CheckSquare, Target, Landmark, ShieldCheck, 
-  Lock, Info, FileText, RefreshCw, Heart, PiggyBank, ShieldAlert
+  Lock, Info, FileText, RefreshCw, Heart, PiggyBank, ShieldAlert,
+  Truck, Store, Laptop, ShoppingBag, Wrench, TrendingUp, Minus, ArrowDownRight,
+  Wallet, Coins, Shield, Smartphone, CreditCard, Banknote, Clock
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -17,39 +19,39 @@ const avatarUrls = {
   ramesh: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=120&h=120'
 };
 
-// Conversational Question 1 Options (occupation)
+// Conversational Question 1 Options (occupation) with Lucide React Vector Icons
 const occupationOptions = [
   {
     id: 'Delivery Partner',
-    icon: '🚚',
+    icon: Truck,
     title: 'Delivery or Logistics Partner',
     desc: 'Delivering food, packages, or driving on gig apps like Swiggy, Zomato, Porter, or Dunzo.',
     badge: 'Gig Work'
   },
   {
     id: 'Tea Shop Owner',
-    icon: '☕',
+    icon: Store,
     title: 'Local Shop or Stall Owner',
     desc: 'Running a tea stall, food shop, neighborhood store, or small local retail business.',
     badge: 'Micro Retail'
   },
   {
     id: 'Freelancer',
-    icon: '💻',
+    icon: Laptop,
     title: 'Freelancer or Independent Worker',
     desc: 'Working independently on design, tech, writing, consulting, or client projects.',
     badge: 'Independent'
   },
   {
     id: 'Boutique Owner',
-    icon: '👗',
+    icon: ShoppingBag,
     title: 'Boutique or Clothing Shop Owner',
     desc: 'Managing a fashion boutique, tailoring shop, craft store, or apparel stall.',
     badge: 'Small Business'
   },
   {
     id: 'Daily Wage Worker',
-    icon: '🔨',
+    icon: Wrench,
     title: 'Daily Wage Tradesperson or Worker',
     desc: 'Working on day rates in construction, skilled trades, farming, or flexible labor.',
     badge: 'Day Rate Work'
@@ -60,19 +62,19 @@ const occupationOptions = [
 const varianceOptions = [
   {
     id: 'Low',
-    icon: '🌊',
+    icon: ShieldCheck,
     title: 'Steady & Predictable',
     desc: 'My monthly earnings stay pretty much the same almost every month.'
   },
   {
     id: 'Medium',
-    icon: '⛅',
+    icon: Compass,
     title: 'Changes Slightly',
     desc: 'Some months bring in a bit more, others a bit less depending on demand.'
   },
   {
     id: 'High',
-    icon: '🌪️',
+    icon: Activity,
     title: 'Varies a Lot',
     desc: 'My income fluctuates heavily based on festivals, harvests, or gig demand.'
   }
@@ -82,19 +84,19 @@ const varianceOptions = [
 const growthOptions = [
   {
     id: 'Increasing',
-    icon: '📈',
+    icon: TrendingUp,
     title: 'Growing & Expanding',
     desc: 'I am bringing in more overall now than I was 12 months ago.'
   },
   {
     id: 'Stable',
-    icon: '⚖️',
+    icon: Minus,
     title: 'Holding Steady',
     desc: 'My overall annual monthly income level has remained consistent.'
   },
   {
     id: 'Declining',
-    icon: '📉',
+    icon: ArrowDownRight,
     title: 'Slowing Down Recently',
     desc: 'Work has been quieter recently compared to earlier months.'
   }
@@ -893,10 +895,11 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                     </div>
                   </div>
 
-                  {/* Radio-Card Selections */}
+                  {/* Radio-Card Selections with Vector Icons */}
                   <div className="grid grid-cols-1 gap-3.5 pt-2">
                     {occupationOptions.map((occ) => {
                       const isSelected = form.occupation === occ.id;
+                      const IconComponent = occ.icon;
                       return (
                         <div
                           key={occ.id}
@@ -908,7 +911,13 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                           }`}
                         >
                           <div className="flex gap-3.5 items-start">
-                            <span className="text-2xl select-none shrink-0 pt-0.5">{occ.icon}</span>
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                              isSelected 
+                                ? 'bg-[#a91d22] text-[#ffffff]' 
+                                : 'bg-[#faf8f5] border border-[#e9e4db] text-[#0f172a]'
+                            }`}>
+                              <IconComponent className="w-4.5 h-4.5" />
+                            </div>
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
                                 <span className="font-serif text-base sm:text-lg font-bold text-[#0f172a]">
@@ -976,6 +985,7 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {varianceOptions.map((v) => {
                         const isSelected = form.income_variance === v.id;
+                        const IconComponent = v.icon;
                         return (
                           <div
                             key={v.id}
@@ -986,9 +996,15 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                                 : 'bg-[#fcfbfa] border-[#e9e4db] hover:border-[#0f172a]/40'
                             }`}
                           >
-                            <div className="space-y-1.5">
+                            <div className="space-y-2">
                               <div className="flex justify-between items-center">
-                                <span className="text-xl select-none">{v.icon}</span>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                                  isSelected 
+                                    ? 'bg-[#a91d22] text-[#ffffff]' 
+                                    : 'bg-[#faf8f5] border border-[#e9e4db] text-[#0f172a]'
+                                }`}>
+                                  <IconComponent className="w-4 h-4" />
+                                </div>
                                 {isSelected && <Check className="w-4 h-4 text-[#a91d22] stroke-[3]" />}
                               </div>
                               <span className="font-serif text-sm font-bold text-[#0f172a] block">{v.title}</span>
@@ -1008,6 +1024,7 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {growthOptions.map((g) => {
                         const isSelected = form.income_growth === g.id;
+                        const IconComponent = g.icon;
                         return (
                           <div
                             key={g.id}
@@ -1018,9 +1035,15 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                                 : 'bg-[#fcfbfa] border-[#e9e4db] hover:border-[#0f172a]/40'
                             }`}
                           >
-                            <div className="space-y-1.5">
+                            <div className="space-y-2">
                               <div className="flex justify-between items-center">
-                                <span className="text-xl select-none">{g.icon}</span>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                                  isSelected 
+                                    ? 'bg-[#a91d22] text-[#ffffff]' 
+                                    : 'bg-[#faf8f5] border border-[#e9e4db] text-[#0f172a]'
+                                }`}>
+                                  <IconComponent className="w-4 h-4" />
+                                </div>
                                 {isSelected && <Check className="w-4 h-4 text-[#a91d22] stroke-[3]" />}
                               </div>
                               <span className="font-serif text-sm font-bold text-[#0f172a] block">{g.title}</span>
@@ -1185,27 +1208,28 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                       {[
                         { 
                           id: 'every_month', 
-                          icon: '🐷', 
+                          icon: PiggyBank, 
                           title: 'I save money almost every month.', 
                           desc: 'I consistently set aside a portion of my earnings every month.',
                           val: 8000
                         },
                         { 
                           id: 'whenever_can', 
-                          icon: '🐖', 
+                          icon: Wallet, 
                           title: 'I save whenever I can.', 
                           desc: 'I put money aside when I have extra after paying expenses.',
                           val: 3000
                         },
                         { 
                           id: 'rarely_left', 
-                          icon: '🪙', 
+                          icon: Coins, 
                           title: 'I rarely have money left to save.', 
                           desc: 'Most of my earnings go immediately toward daily living costs.',
                           val: 500
                         }
                       ].map((sOpt) => {
                         const isSelected = form.savings === sOpt.val;
+                        const IconComponent = sOpt.icon;
                         return (
                           <div
                             key={sOpt.id}
@@ -1216,9 +1240,15 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                                 : 'bg-[#fcfbfa] border-[#e9e4db] hover:border-[#0f172a]/40'
                             }`}
                           >
-                            <div className="space-y-1.5">
+                            <div className="space-y-2">
                               <div className="flex justify-between items-center">
-                                <span className="text-xl select-none">{sOpt.icon}</span>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                                  isSelected 
+                                    ? 'bg-[#a91d22] text-[#ffffff]' 
+                                    : 'bg-[#faf8f5] border border-[#e9e4db] text-[#0f172a]'
+                                }`}>
+                                  <IconComponent className="w-4 h-4" />
+                                </div>
                                 {isSelected && <Check className="w-4 h-4 text-[#a91d22] stroke-[3]" />}
                               </div>
                               <span className="font-serif text-sm font-bold text-[#0f172a] block">{sOpt.title}</span>
@@ -1239,27 +1269,28 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                       {[
                         { 
                           id: 'short', 
-                          icon: '🛡️', 
+                          icon: Shield, 
                           title: 'Less than 1 month of expenses', 
                           desc: 'I keep a small cash reserve for immediate daily needs.',
                           val: 3000
                         },
                         { 
                           id: 'medium', 
-                          icon: '🛡️', 
+                          icon: ShieldCheck, 
                           title: 'About 1 to 2 months of expenses', 
                           desc: 'I have enough buffer to cover expenses for a month or two.',
                           val: 15000
                         },
                         { 
                           id: 'long', 
-                          icon: '🛡️', 
+                          icon: Landmark, 
                           title: '3 months or more of expenses', 
                           desc: 'I maintain a solid emergency reserve in my bank account.',
                           val: 35000
                         }
                       ].map((cOpt) => {
                         const isSelected = form.average_balance === cOpt.val;
+                        const IconComponent = cOpt.icon;
                         return (
                           <div
                             key={cOpt.id}
@@ -1270,9 +1301,15 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                                 : 'bg-[#fcfbfa] border-[#e9e4db] hover:border-[#0f172a]/40'
                             }`}
                           >
-                            <div className="space-y-1.5">
+                            <div className="space-y-2">
                               <div className="flex justify-between items-center">
-                                <span className="text-xl select-none">{cOpt.icon}</span>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                                  isSelected 
+                                    ? 'bg-[#a91d22] text-[#ffffff]' 
+                                    : 'bg-[#faf8f5] border border-[#e9e4db] text-[#0f172a]'
+                                }`}>
+                                  <IconComponent className="w-4 h-4" />
+                                </div>
                                 {isSelected && <Check className="w-4 h-4 text-[#a91d22] stroke-[3]" />}
                               </div>
                               <span className="font-serif text-sm font-bold text-[#0f172a] block">{cOpt.title}</span>
@@ -1323,27 +1360,28 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                       {[
                         { 
                           id: 'digital', 
-                          icon: '📱', 
+                          icon: Smartphone, 
                           title: 'Mostly phone apps (UPI / QR)', 
                           desc: 'I use Google Pay, PhonePe, or Paytm for almost all my spending.',
                           digital: 120, cash: 15
                         },
                         { 
                           id: 'mix', 
-                          icon: '⚖️', 
+                          icon: CreditCard, 
                           title: 'A mix of UPI phone apps & cash', 
                           desc: 'I use UPI for bills and shopping, and cash for small daily expenses.',
                           digital: 65, cash: 35
                         },
                         { 
                           id: 'cash', 
-                          icon: '💵', 
+                          icon: Banknote, 
                           title: 'Mostly paper cash', 
                           desc: 'My daily routine and work run primarily on physical cash.',
                           digital: 15, cash: 100
                         }
                       ].map((h) => {
                         const isSelected = form.digital_transactions >= form.cash_transactions ? (h.id === 'digital' || h.id === 'mix') : h.id === 'cash';
+                        const IconComponent = h.icon;
                         return (
                           <div
                             key={h.id}
@@ -1357,9 +1395,15 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                                 : 'bg-[#fcfbfa] border-[#e9e4db] hover:border-[#0f172a]/40'
                             }`}
                           >
-                            <div className="space-y-1.5">
+                            <div className="space-y-2">
                               <div className="flex justify-between items-center">
-                                <span className="text-xl select-none">{h.icon}</span>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                                  isSelected 
+                                    ? 'bg-[#a91d22] text-[#ffffff]' 
+                                    : 'bg-[#faf8f5] border border-[#e9e4db] text-[#0f172a]'
+                                }`}>
+                                  <IconComponent className="w-4 h-4" />
+                                </div>
                                 {isSelected && <Check className="w-4 h-4 text-[#a91d22] stroke-[3]" />}
                               </div>
                               <span className="font-serif text-sm font-bold text-[#0f172a] block">{h.title}</span>
@@ -1409,23 +1453,29 @@ export default function Dashboard({ predictionData, setPredictionData }) {
                       </label>
                       <div className="space-y-2">
                         {[
-                          { label: '✨ Zero delayed payments', count: 0 },
-                          { label: '🟡 1 or 2 minor late payments', count: 1 },
-                          { label: '🔴 3 or more delayed payments', count: 3 },
-                        ].map((opt) => (
-                          <div
-                            key={opt.count}
-                            onClick={() => updateField('missed_payments', opt.count)}
-                            className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between text-xs font-sans ${
-                              form.missed_payments === opt.count
-                                ? 'bg-[#fcfbfa] border-[#a91d22] font-bold text-[#0f172a]'
-                                : 'bg-[#fcfbfa] border-[#e9e4db] text-[#475569] hover:border-[#0f172a]'
-                            }`}
-                          >
-                            <span>{opt.label}</span>
-                            {form.missed_payments === opt.count && <Check className="w-4 h-4 text-[#a91d22] stroke-[3]" />}
-                          </div>
-                        ))}
+                          { label: 'Zero delayed payments', count: 0, icon: CheckCircle2, color: 'text-[#5f7d66]' },
+                          { label: '1 or 2 minor late payments', count: 1, icon: Clock, color: 'text-[#c87a53]' },
+                          { label: '3 or more delayed payments', count: 3, icon: AlertTriangle, color: 'text-[#a91d22]' },
+                        ].map((opt) => {
+                          const IconComp = opt.icon;
+                          return (
+                            <div
+                              key={opt.count}
+                              onClick={() => updateField('missed_payments', opt.count)}
+                              className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between text-xs font-sans ${
+                                form.missed_payments === opt.count
+                                  ? 'bg-[#fcfbfa] border-[#a91d22] font-bold text-[#0f172a]'
+                                  : 'bg-[#fcfbfa] border-[#e9e4db] text-[#475569] hover:border-[#0f172a]'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <IconComp className={`w-4 h-4 ${opt.color}`} />
+                                <span>{opt.label}</span>
+                              </div>
+                              {form.missed_payments === opt.count && <Check className="w-4 h-4 text-[#a91d22] stroke-[3]" />}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
 
