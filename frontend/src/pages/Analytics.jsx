@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { ShieldCheck, Sparkles, AlertTriangle, Compass, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, Sparkles, AlertTriangle, ArrowLeft } from 'lucide-react';
 
 export default function Analytics({ predictionData }) {
   const navigate = useNavigate();

@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { predictCreditReadiness } from '../services/api';
 import demoProfiles from '../data/demo_profiles.json';
 import { 
   ArrowRight, ArrowLeft, CheckCircle2, Loader2, Check, Activity, 
-  AlertTriangle, Compass, CheckSquare, Target, Landmark, ShieldCheck, 
-  Lock, Info, FileText, RefreshCw, Heart, PiggyBank, ShieldAlert,
+  AlertTriangle, Compass, CheckSquare, Landmark, ShieldCheck,
+  Lock, Info, FileText, RefreshCw, PiggyBank,
   Truck, Store, Laptop, ShoppingBag, Wrench, TrendingUp, Minus, ArrowDownRight,
   Wallet, Coins, Shield, Smartphone, CreditCard, Banknote, Clock
 } from 'lucide-react';
@@ -103,7 +102,6 @@ const growthOptions = [
 ];
 
 export default function Dashboard({ predictionData, setPredictionData }) {
-  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [processingStep, setProcessingStep] = useState(0);
